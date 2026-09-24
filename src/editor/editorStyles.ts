@@ -1,22 +1,19 @@
 import type { SxProps, Theme } from '@mui/material/styles';
-import type { FontSize } from '../settings/settings';
-
-const FONT_SIZES: Record<FontSize, number> = { small: 15, medium: 17, large: 19 };
 
 /** ProseMirror が生成する DOM へのスタイル */
-export function editorContentSx(fontSize: FontSize): SxProps<Theme> {
+export function editorContentSx(fontSize: number, lineHeight: number, compact = false): SxProps<Theme> {
   return (theme) => ({
     '& .ProseMirror': {
       outline: 'none',
       minHeight: '60vh',
-      fontSize: FONT_SIZES[fontSize],
-      lineHeight: 1.8,
+      fontSize,
+      lineHeight,
       color: theme.m3.onSurface,
       wordBreak: 'break-word',
       caretColor: theme.palette.primary.main,
       '& > * + *': { mt: 0 },
       '& p': { my: 0 },
-      '& h1, & h2, & h3': { lineHeight: 1.4, mt: '1.2em', mb: '0.4em', fontWeight: 700 },
+      '& h1, & h2, & h3': { lineHeight: 1.4, mt: compact ? '0.7em' : '1.2em', mb: compact ? '0.2em' : '0.4em', fontWeight: 700 },
       '& h1': { fontSize: '1.6em' },
       '& h2': { fontSize: '1.35em' },
       '& h3': { fontSize: '1.15em' },

@@ -63,6 +63,28 @@ export function HelpPage() {
         </Box>
       </Section>
 
+      <Section title="AI書式（意味ブロック）">
+        <Box sx={{ p: 2 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            ツールバー左端の「AI書式」から、段落を役割の付いたブロックにできます。
+            コピーすると各ブロックが XML タグで区切られ、AI が「何をしてほしいのか」「何が資料なのか」を取り違えにくくなります。
+          </Typography>
+          <Box component="ul" sx={{ m: 0, pl: 2.5, color: 'text.secondary', '& li': { mb: 0.5 } }}>
+            <li><Typography variant="body2"><b>指示</b> … AI にしてほしいこと</Typography></li>
+            <li><Typography variant="body2"><b>背景</b> … 前提・目的・状況</Typography></li>
+            <li><Typography variant="body2"><b>条件</b> … 守ってほしいルール・制約</Typography></li>
+            <li><Typography variant="body2"><b>資料</b> … 処理してほしい文章やデータ（指示としては扱われません）</Typography></li>
+            <li><Typography variant="body2"><b>出力形式</b> … 回答の形・長さ・書き方</Typography></li>
+            <li><Typography variant="body2"><b>例</b> … 入力と出力の見本</Typography></li>
+            <li><Typography variant="body2"><b>メモ</b> … 自分用のメモ（AI には送られません）</Typography></li>
+          </Box>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            ブロック上部のラベルから種類の変更・名前付け（例：資料「議事録」）・解除ができます。
+            ブロック内の最後の空行で Enter を押すとブロックの外に出ます。
+          </Typography>
+        </Box>
+      </Section>
+
       <Section title="使い方">
         <Box component="ol" sx={{ m: 0, py: 2, pr: 2, pl: 5, '& li': { mb: 1 } }}>
           <li>
@@ -73,7 +95,7 @@ export function HelpPage() {
           </li>
           <li>
             <Typography>
-              右上（スマホでは右下）の「AI用にコピー」を押します。
+              上部の「AI用にコピー」を押します。
             </Typography>
           </li>
           <li>
@@ -82,7 +104,7 @@ export function HelpPage() {
         </Box>
         <Divider />
         <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>
-          目のアイコンで、コピーされる内容を事前に確認できます。書いた内容はこのブラウザに自動で一時保存され、次に起動したときは空の文書で始まります（起動直後の「復元」で前回の内容に戻せます）。
+          「プレビュー」（スマホではコピー後のお知らせの「内容を見る」）で、コピーされる内容を確認できます。書いた内容はこのブラウザに自動で一時保存され、次に起動したときは空の文書で始まります（起動直後の「復元」で前回の内容に戻せます）。
         </Typography>
       </Section>
 
@@ -103,7 +125,7 @@ export function HelpPage() {
 
       <Section title="履歴（リビジョン）">
         <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>
-          時計のアイコンから、この文書の過去の状態を確認できます。「AI用にコピー」した時点・ファイルに保存した時点・
+          時計のアイコンから、この文書の過去の状態を確認できます。「AI用にコピー」した時点（プロンプトを AI に渡した時点）と
           復元する前の状態が自動で記録され、「今の状態を記録」で手動でも残せます。各履歴は現在や前の版との差分を表示でき、
           「この版に戻す」で復元、「この版をコピー」でその時点の内容を AI 用にコピーできます。履歴は文書ファイルに一緒に保存されます。
         </Typography>

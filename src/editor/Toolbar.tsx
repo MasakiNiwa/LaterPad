@@ -31,6 +31,11 @@ import CallMergeIcon from '@mui/icons-material/CallMerge';
 import CallSplitIcon from '@mui/icons-material/CallSplit';
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import DeleteForeverOutlinedIcon from '@mui/icons-material/DeleteForeverOutlined';
+import AutoAwesomeOutlinedIcon from '@mui/icons-material/AutoAwesomeOutlined';
+import LayersClearOutlinedIcon from '@mui/icons-material/LayersClearOutlined';
+import { useTheme } from '@mui/material/styles';
+import { AI_BLOCK_NODE, AI_BLOCK_ROLES, roleInfo } from '../core/aiBlocks';
+import { ROLE_STYLE } from './aiBlock/roleStyle';
 import { GroupMenu, type GroupEntry } from './GroupMenu';
 import { TableSizePicker } from './TableSizePicker';
 import { modKey } from '../lib/platform';
@@ -64,17 +69,33 @@ export function Toolbar({ editor, onLinkClick }: ToolbarProps) {
       canSink: e.can().sinkListItem('listItem'),
       canLift: e.can().liftListItem('listItem'),
       table: e.isActive('table'),
+      aiRole: e.isActive(AI_BLOCK_NODE) ? String(e.getAttributes(AI_BLOCK_NODE).role ?? '') : null,
       canMerge: e.can().mergeCells(),
       canSplit: e.can().splitCell(),
     }),
   });
   const [tableAnchor, setTableAnchor] = useState<HTMLElement | null>(null);
+  const theme = useTheme();
 
   if (!s) return null;
   const chain = () => editor.chain().focus();
   const mod = modKey();
 
   const blockLabel = s.codeBlock ? 'コード' : s.blockquote ? '引用' : BLOCK_LABELS[s.heading];
+
+  const ai: GroupEntry[] = [
+    { kind: 'header', label: s.aiRole ? 'このブロックの種類' : '選択した段落をブロックにする' },
+    ...AI_BLOCK_ROLES.map((r) => ({
+      label: r.label,
+      description: r.description,
+      icon: <Box component="span" sx={{ display: 'inline-flex', color: theme.palette.mode === 'dark' ? ROLE_STYLE[r.role].dark : ROLE_STYLE[r.role].light }}>{ROLE_STYLE[r.role].icon()}</Box>,
+      active: s.aiRole === r.role,
+      onSelect: () => chain().setAiBlock(r.role).run(),
+    })),
+    { kind: 'divider' },
+    { label: 'ブロックを解除', description: '中の文章は残します', icon: <LayersClearOutlinedIcon />, disabled: !s.aiRole, onSelect: () => chain().unsetAiBlock().run() },
+  ];
+  const aiLabel = s.aiRole ? roleInfo(s.aiRole).label : 'AI書式';
 
   const paragraph: GroupEntry[] = [
     { label: '本文', icon: <NotesIcon />, active: !s.heading && !s.codeBlock && !s.blockquote, shortcut: `${mod}+Alt+0`, onSelect: () => chain().setParagraph().run() },
@@ -150,6 +171,7 @@ export function Toolbar({ editor, onLinkClick }: ToolbarProps) {
         '& > *': { flexShrink: 0 },
       }}
     >
+      <GroupMenu label={aiLabel} icon={<AutoAwesomeOutlinedIcon />} entries={ai} active={!!s.aiRole} />
       <GroupMenu label={blockLabel} icon={<TitleIcon />} entries={paragraph} active={!!s.heading || s.blockquote || s.codeBlock} />
       <GroupMenu label="文字" icon={<TextFieldsIcon />} entries={text} active={s.bold || s.italic || s.strike || s.code} />
       <GroupMenu label="リスト" icon={<FormatListBulletedIcon />} entries={list} active={s.bulletList || s.orderedList} />

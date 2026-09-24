@@ -5,7 +5,6 @@ import AppBar from '@mui/material/AppBar';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
-import Fab from '@mui/material/Fab';
 import IconButton from '@mui/material/IconButton';
 import InputBase from '@mui/material/InputBase';
 import Snackbar from '@mui/material/Snackbar';
@@ -110,6 +109,12 @@ export function EditorPage() {
 
   const { render, copy } = useCopyForAI(editor, state.file.title);
   const [toast, setToast] = useState<string | null>(null);
+  /** コピー直後のお知らせに「内容を見る」を付ける */
+  const [toastPreview, setToastPreview] = useState(false);
+  const notify = useCallback((message: string | null, withPreview = false) => {
+    setToast(message);
+    setToastPreview(withPreview);
+  }, []);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [preview, setPreview] = useState({ text: '', formatLabel: '' });
   const [linkOpen, setLinkOpen] = useState(false);
@@ -157,17 +162,17 @@ export function EditorPage() {
 
   const recordRevision = useCallback(() => {
     const rev = session.addRevision('manual');
-    setToast(rev ? '今の状態を履歴に記録しました' : '記録できませんでした');
+    notify(rev ? '今の状態を履歴に記録しました' : '記録できませんでした');
   }, [session]);
 
   const handleCopy = useCallback(async () => {
     const result = await copy();
-    if (result.empty) setToast('コピーする内容がありません');
+    if (result.empty) notify('コピーする内容がありません');
     else if (result.ok) {
       // 「AIに渡した時点」を履歴として残す
       if (settings.revisionOnCopy) session.addRevision('copy');
-      setToast(`AI用にコピーしました（${result.formatLabel}・${result.length.toLocaleString()} 文字）`);
-    } else setToast('コピーできませんでした。ブラウザの権限を確認してください');
+      notify(`AI用にコピーしました（${result.formatLabel}・${result.length.toLocaleString()} 文字）`, true);
+    } else notify('コピーできませんでした。ブラウザの権限を確認してください');
   }, [copy, session, settings.revisionOnCopy]);
 
   // ------------------------------------------------------------ revisions
@@ -186,7 +191,7 @@ export function EditorPage() {
       if (!isCoarsePointer()) chain.focus('start');
       chain.run();
       setHistoryOpen(false);
-      setToast(`${formatShort(revision.createdAt)} の版に戻しました`);
+      notify(`${formatShort(revision.createdAt)} の版に戻しました`);
     },
     [editor, session],
   );
@@ -196,9 +201,9 @@ export function EditorPage() {
       const { exporter, text } = exportDoc(revision.content, settings.copyFormat, { title: revision.title });
       try {
         await copyText(text);
-        setToast(`この版をコピーしました（${exporter.label}・${text.length.toLocaleString()} 文字）`);
+        notify(`この版をコピーしました（${exporter.label}・${text.length.toLocaleString()} 文字）`);
       } catch {
-        setToast('コピーできませんでした');
+        notify('コピーできませんでした');
       }
     },
     [settings.copyFormat],
@@ -217,14 +222,14 @@ export function EditorPage() {
       try {
         const result = await session.save(saveAs);
         if (!result) return;
-        setToast(
+        notify(
           result.downloaded
             ? `「${result.fileName}」をダウンロードしました`
             : `「${result.fileName}」に保存しました`,
         );
       } catch (e) {
         console.error(e);
-        setToast('保存できませんでした');
+        notify('保存できませんでした');
       }
     },
     [session],
@@ -234,17 +239,17 @@ export function EditorPage() {
     async (action: PendingAction) => {
       if (action.kind === 'new') {
         session.newDocument();
-        setToast('新しい文書を作成しました');
+        notify('新しい文書を作成しました');
         return;
       }
       try {
         const opened = action.opened ?? (await openFileWithPicker());
         if (!opened) return;
         session.openDocument(opened);
-        setToast(`「${opened.fileName}」を開きました`);
+        notify(`「${opened.fileName}」を開きました`);
       } catch (e) {
         console.error(e);
-        setToast(e instanceof FileFormatError ? e.message : 'ファイルを開けませんでした');
+        notify(e instanceof FileFormatError ? e.message : 'ファイルを開けませんでした');
       }
     },
     [session],
@@ -273,7 +278,7 @@ export function EditorPage() {
       try {
         guarded({ kind: 'open', opened: await readFile(f) });
       } catch (err) {
-        setToast(err instanceof FileFormatError ? err.message : 'ファイルを開けませんでした');
+        notify(err instanceof FileFormatError ? err.message : 'ファイルを開けませんでした');
       }
     };
     window.addEventListener('dragover', onDragOver);
@@ -371,17 +376,6 @@ export function EditorPage() {
             })}
           />
           <Box sx={{ flex: { xs: 0, md: 1 } }} />
-          <Tooltip title={`AI用にコピー（${mod}+Shift+Enter）`}>
-            <Button
-              variant="contained"
-              disableElevation
-              startIcon={<ContentCopyIcon />}
-              onClick={handleCopy}
-              sx={{ display: { xs: 'none', sm: 'inline-flex' }, flexShrink: 0 }}
-            >
-              AI用にコピー
-            </Button>
-          </Tooltip>
           <Tooltip title="設定">
             <IconButton aria-label="設定" onClick={() => navigate('/settings')}>
               <SettingsOutlinedIcon />
@@ -414,7 +408,8 @@ export function EditorPage() {
             <ActionDivider />
             <ActionButton icon={<SearchIcon />} label="検索" tooltip={`検索・置換（${mod}+F）`} active={searchOpen} onClick={() => (searchOpen ? closeSearch() : openSearch(false))} />
             <ActionButton icon={<HistoryIcon />} label="履歴" tooltip="履歴（過去の版・今の状態を記録）" onClick={() => setHistoryOpen(true)} />
-            <ActionButton icon={<VisibilityOutlinedIcon />} label="プレビュー" tooltip="コピー内容をプレビュー" onClick={openPreview} />
+            <ActionButton icon={<VisibilityOutlinedIcon />} label="プレビュー" tooltip="コピー内容をプレビュー" hideOnMobile onClick={openPreview} />
+            <ActionButton icon={<ContentCopyIcon />} label="AI用にコピー" tooltip={`AI用にコピー（${mod}+Shift+Enter）`} primary onClick={() => void handleCopy()} />
           </ActionBar>
         </Box>
 
@@ -433,7 +428,7 @@ export function EditorPage() {
                 replaceOpen={replaceOpen}
                 onToggleReplace={() => setReplaceOpen((v) => !v)}
                 onClose={closeSearch}
-                onReplacedAll={(n) => setToast(`${n} 件を置換しました`)}
+                onReplacedAll={(n) => notify(`${n} 件を置換しました`)}
                 focusKey={searchFocusKey}
               />
             )}
@@ -446,13 +441,21 @@ export function EditorPage() {
 
       <Box
         component="main"
-        sx={{ flex: 1, width: '100%', maxWidth: 900, mx: 'auto', px: { xs: 2, sm: 4 }, pt: { xs: 2, sm: 3 }, pb: 16 }}
+        sx={{
+          flex: 1,
+          width: '100%',
+          maxWidth: 900,
+          mx: 'auto',
+          px: settings.compact ? { xs: 1.25, sm: 2 } : { xs: 2, sm: 4 },
+          pt: settings.compact ? { xs: 1, sm: 1.5 } : { xs: 2, sm: 3 },
+          pb: 8,
+        }}
         onClick={(e) => {
           // 余白クリックでも入力を始められるようにする
           if (e.target === e.currentTarget) editor?.commands.focus('end');
         }}
       >
-        <Box sx={editorContentSx(settings.fontSize)}>
+        <Box sx={editorContentSx(settings.fontSize, settings.lineHeight, settings.compact)}>
           <EditorContent editor={editor} />
         </Box>
       </Box>
@@ -486,39 +489,8 @@ export function EditorPage() {
         <Typography variant="caption" sx={{ flexShrink: 0 }}>
           {(stats?.chars ?? 0).toLocaleString()} 字・{(stats?.lines ?? 0).toLocaleString()} 行
         </Typography>
-        {viewport.keyboardOpen && (
-          // キーボード表示中は大きなコピーボタンの代わりにここから コピーできる
-          <Button
-            size="small"
-            variant="contained"
-            disableElevation
-            startIcon={<ContentCopyIcon />}
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={handleCopy}
-            sx={{ flexShrink: 0, my: 0.5, py: 0.25, minHeight: 0 }}
-          >
-            AI用にコピー
-          </Button>
-        )}
       </Box>
 
-      <Fab
-        variant="extended"
-        color="primary"
-        aria-label="AI用にコピー"
-        onClick={handleCopy}
-        sx={{
-          display: viewport.keyboardOpen ? 'none' : { xs: 'inline-flex', sm: 'none' },
-          position: 'fixed',
-          right: 16,
-          bottom: 'calc(48px + env(safe-area-inset-bottom))',
-          gap: 1,
-          zIndex: 3,
-        }}
-      >
-        <ContentCopyIcon />
-        AI用にコピー
-      </Fab>
 
       {editor && <LinkDialog editor={editor} open={linkOpen} onClose={() => setLinkOpen(false)} />}
       <PreviewDialog
@@ -551,7 +523,7 @@ export function EditorPage() {
         onConfirm={() => {
           if (!deleteTarget) return;
           session.removeRevision(deleteTarget.id);
-          setToast('履歴を削除しました');
+          notify('履歴を削除しました');
         }}
         onClose={() => setDeleteTarget(null)}
       />
@@ -578,12 +550,32 @@ export function EditorPage() {
       />
       <Snackbar
         open={!!toast}
-        autoHideDuration={2500}
-        onClose={() => setToast(null)}
+        autoHideDuration={toastPreview ? 4000 : 2500}
+        onClose={(_, reason) => {
+          if (reason === 'clickaway') return;
+          notify(null);
+          setToastPreview(false);
+        }}
         message={toast}
+        action={
+          toastPreview ? (
+            <Button
+              color="inherit"
+              size="small"
+              onClick={() => {
+                notify(null);
+                setToastPreview(false);
+                openPreview();
+              }}
+              sx={{ fontWeight: 700, color: 'primary.light' }}
+            >
+              内容を見る
+            </Button>
+          ) : undefined
+        }
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
         style={{ transform: viewport.bottomInset ? `translateY(-${viewport.bottomInset}px)` : undefined }}
-        sx={{ bottom: { xs: 'calc(112px + env(safe-area-inset-bottom))', sm: 48 } }}
+        sx={{ bottom: { xs: 'calc(48px + env(safe-area-inset-bottom))', sm: 48 } }}
       />
       <Snackbar
         open={!!session.previousDraft && !restoreDismissed}
@@ -597,7 +589,7 @@ export function EditorPage() {
             onClick={() => {
               setRestoreDismissed(true);
               session.restorePrevious();
-              setToast('前回の内容を復元しました');
+              notify('前回の内容を復元しました');
             }}
             sx={{ fontWeight: 700, color: 'primary.light' }}
           >
@@ -605,7 +597,7 @@ export function EditorPage() {
           </Button>
         }
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-        sx={{ bottom: { xs: 'calc(112px + env(safe-area-inset-bottom))', sm: 48 } }}
+        sx={{ bottom: { xs: 'calc(48px + env(safe-area-inset-bottom))', sm: 48 } }}
       />
     </Box>
   );

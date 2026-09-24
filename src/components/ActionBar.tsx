@@ -42,9 +42,13 @@ interface ActionButtonProps {
    * false の場合、スマホではボタンを押すと本文の入力を終えてソフトウェアキーボードを閉じる。
    */
   keepFocus?: boolean;
+  /** スマホ幅では表示しない */
+  hideOnMobile?: boolean;
+  /** 主要な操作として塗りつぶしで強調する（AI用にコピー） */
+  primary?: boolean;
 }
 
-export function ActionButton({ icon, label, onClick, disabled, active, accent, tooltip, keepFocus }: ActionButtonProps) {
+export function ActionButton({ icon, label, onClick, disabled, active, accent, tooltip, keepFocus, hideOnMobile, primary }: ActionButtonProps) {
   const button = (
     <ButtonBase
       aria-label={label}
@@ -59,7 +63,7 @@ export function ActionButton({ icon, label, onClick, disabled, active, accent, t
         if (keepFocus || !isCoarsePointer()) e.preventDefault();
       }}
       sx={(t) => ({
-        display: 'flex',
+        display: hideOnMobile ? { xs: 'none', sm: 'flex' } : 'flex',
         flexDirection: 'column',
         // スマホではボタンを均等幅で並べ、横スクロールなしで収める
         flex: { xs: '1 1 0', sm: '0 0 auto' },
@@ -67,13 +71,22 @@ export function ActionButton({ icon, label, onClick, disabled, active, accent, t
         justifyContent: 'center',
         gap: '2px',
         minWidth: { xs: 'fit-content', sm: 60 },
-        px: { xs: 0, sm: 0.75 },
+        px: primary ? { xs: 0.75, sm: 1.5 } : { xs: 0, sm: 0.75 },
         py: 0.5,
         borderRadius: '12px',
-        color: disabled ? t.palette.text.disabled : accent ? t.palette.primary.main : t.m3.onSurface,
-        bgcolor: active ? t.m3.primaryContainer : 'transparent',
+        color: disabled
+          ? t.palette.text.disabled
+          : primary
+            ? t.palette.primary.contrastText
+            : accent
+              ? t.palette.primary.main
+              : t.m3.onSurface,
+        bgcolor: primary ? t.palette.primary.main : active ? t.m3.primaryContainer : 'transparent',
+        ml: primary ? { sm: 'auto' } : undefined,
         transition: 'background-color 120ms',
-        '&:hover': { bgcolor: active ? t.m3.primaryContainer : t.palette.action.hover },
+        '&:hover': {
+          bgcolor: primary ? t.palette.primary.dark : active ? t.m3.primaryContainer : t.palette.action.hover,
+        },
         '& svg': { fontSize: 24 },
       })}
     >

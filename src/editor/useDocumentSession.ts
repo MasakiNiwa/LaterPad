@@ -151,8 +151,6 @@ export function useDocumentSession(getContent: () => DocNode | null, restoreOnSt
   /** ファイルへ保存する。キャンセル時は null */
   const save = useCallback(
     async (saveAs = false) => {
-      // 保存時点の状態をリビジョンとして残してから書き出す
-      addRevision('save');
       const s = stateRef.current;
       const file = { ...snapshot(s), updatedAt: new Date().toISOString() };
       const result = await saveFile(file, handleRef.current, saveAs);
@@ -164,7 +162,7 @@ export function useDocumentSession(getContent: () => DocNode | null, restoreOnSt
       flushDraft();
       return result;
     },
-    [snapshot, flushDraft, addRevision],
+    [snapshot, flushDraft],
   );
 
   /** 保存していない変更を失う操作の前に確認が必要か */

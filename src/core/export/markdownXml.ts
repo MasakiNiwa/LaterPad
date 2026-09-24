@@ -1,5 +1,7 @@
 import type { DocNode } from '../document';
 import { plainTextOf } from '../document';
+import { AI_BLOCK_NODE } from '../aiBlocks';
+import { renderAiBlock } from './aiPrompt';
 import { blocksToMarkdown } from './markdown';
 import type { ExportOptions, Exporter } from './types';
 
@@ -23,6 +25,12 @@ export function toMarkdownXml(doc: DocNode, options: ExportOptions = {}): string
   };
 
   for (const block of doc.content ?? []) {
+    if (block.type === AI_BLOCK_NODE) {
+      flush();
+      const rendered = renderAiBlock(block);
+      if (rendered) lines.push(rendered);
+      continue;
+    }
     if (block.type !== 'heading') {
       buffer.push(block);
       continue;
