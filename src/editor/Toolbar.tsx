@@ -99,6 +99,9 @@ export function Toolbar({ editor, onLinkClick }: ToolbarProps) {
         py: 0.5,
         overflowX: 'auto',
         scrollbarWidth: 'none',
+        // スマホでは右端をフェードさせ、横にスクロールできることを示す
+        maskImage: { xs: 'linear-gradient(to right, #000 calc(100% - 32px), transparent)', md: 'none' },
+        pr: { xs: 4, md: 1 },
         '&::-webkit-scrollbar': { display: 'none' },
         '& > *': { flexShrink: 0 },
       }}
@@ -201,7 +204,8 @@ export function Toolbar({ editor, onLinkClick }: ToolbarProps) {
               mx: 0.5,
               px: 1.25,
               height: 32,
-              fontSize: 14,
+              // iOS は 16px 未満の入力欄にフォーカスすると画面を拡大するため、スマホでは 16px にする
+              fontSize: { xs: 16, sm: 14 },
               fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
               borderRadius: '8px',
               bgcolor: t.m3.surfaceContainerHigh,
