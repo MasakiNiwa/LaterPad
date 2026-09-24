@@ -4,6 +4,7 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
+import InputBase from '@mui/material/InputBase';
 import ListItemText from '@mui/material/ListItemText';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
@@ -52,6 +53,7 @@ export function Toolbar({ editor, onLinkClick }: ToolbarProps) {
       blockquote: e.isActive('blockquote'),
       code: e.isActive('code'),
       codeBlock: e.isActive('codeBlock'),
+      codeLanguage: e.isActive('codeBlock') ? String(e.getAttributes('codeBlock').language ?? '') : '',
       link: e.isActive('link'),
       table: e.isActive('table'),
     }),
@@ -177,6 +179,36 @@ export function Toolbar({ editor, onLinkClick }: ToolbarProps) {
       <ToolButton title="コードブロック" shortcut={`${mod}+Alt+C`} active={state.codeBlock} onClick={() => chain().toggleCodeBlock().run()}>
         <DataObjectIcon />
       </ToolButton>
+      {state.codeBlock && (
+        <Tooltip title="コードの言語（例: python, ts）。AI にコードの種類を伝えます">
+          <InputBase
+            value={state.codeLanguage}
+            onChange={(e) =>
+              editor
+                .chain()
+                .updateAttributes('codeBlock', { language: e.target.value.trim() || null })
+                .run()
+            }
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                editor.commands.focus();
+              }
+            }}
+            placeholder="言語"
+            inputProps={{ 'aria-label': 'コードの言語', size: 8, spellCheck: false }}
+            sx={(t) => ({
+              mx: 0.5,
+              px: 1.25,
+              height: 32,
+              fontSize: 14,
+              fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+              borderRadius: '8px',
+              bgcolor: t.m3.surfaceContainerHigh,
+            })}
+          />
+        </Tooltip>
+      )}
       <ToolButton title="リンク" shortcut={`${mod}+K`} active={state.link} onClick={onLinkClick}>
         <LinkIcon />
       </ToolButton>

@@ -13,13 +13,13 @@ export interface CopyResult {
 }
 
 /** 「AI用にコピー」の中核。現在の設定の形式に変換してクリップボードへ書き込む。 */
-export function useCopyForAI(editor: Editor | null) {
+export function useCopyForAI(editor: Editor | null, title: string) {
   const { settings } = useSettings();
 
   const render = useCallback(() => {
     const doc = (editor?.getJSON() ?? { type: 'doc' }) as DocNode;
-    return exportDoc(doc, settings.copyFormat);
-  }, [editor, settings.copyFormat]);
+    return exportDoc(doc, settings.copyFormat, { title });
+  }, [editor, settings.copyFormat, title]);
 
   const copy = useCallback(async (): Promise<CopyResult> => {
     const { exporter, text } = render();

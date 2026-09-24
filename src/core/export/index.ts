@@ -1,12 +1,13 @@
 import type { DocNode } from '../document';
 import { markdownExporter } from './markdown';
+import { markdownXmlExporter } from './markdownXml';
 import { plainTextExporter } from './plainText';
 import type { ExportOptions, Exporter } from './types';
 
 export type { Exporter, ExportOptions } from './types';
 
 /** 利用可能な出力形式。追加する場合はここに登録する。 */
-export const exporters: readonly Exporter[] = [markdownExporter, plainTextExporter];
+export const exporters: readonly Exporter[] = [markdownExporter, markdownXmlExporter, plainTextExporter];
 
 /**
  * 「推奨形式」の ID。

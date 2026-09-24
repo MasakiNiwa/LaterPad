@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { DocNode } from '../document';
 import { toMarkdown } from './markdown';
 import { toPlainText } from './plainText';
+import { toMarkdownXml } from './markdownXml';
 
 const t = (text: string, ...marks: (string | [string, Record<string, unknown>])[]): DocNode => ({
   type: 'text',
@@ -89,5 +90,36 @@ describe('toPlainText', () => {
         ),
       ),
     ).toBe('Title\n\n・a');
+  });
+});
+
+describe('toMarkdownXml', () => {
+  const h = (level: number, text: string): DocNode => ({ type: 'heading', attrs: { level }, content: [t(text)] });
+
+  it('wraps heading sections in nested XML tags', () => {
+    const out = toMarkdownXml(
+      doc(p(t('前置き')), h(1, '指示'), p(t('要約して')), h(2, '条件 "A"'), p(t('短く')), h(1, '資料'), p(t('本文', 'bold'))),
+      { title: 'テスト' },
+    );
+    expect(out).toBe(
+      [
+        '<document title="テスト">',
+        '前置き',
+        '<section title="指示">',
+        '要約して',
+        '<section title="条件 &quot;A&quot;">',
+        '短く',
+        '</section>',
+        '</section>',
+        '<section title="資料">',
+        '**本文**',
+        '</section>',
+        '</document>',
+      ].join('\n'),
+    );
+  });
+
+  it('returns empty string for empty untitled document', () => {
+    expect(toMarkdownXml(doc(p()))).toBe('');
   });
 });

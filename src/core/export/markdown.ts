@@ -11,8 +11,18 @@ import type { Exporter } from './types';
  * - 文字色やフォントなど、構造として意味の薄い装飾は出力しない。
  */
 export function toMarkdown(doc: DocNode): string {
-  const out = serializeBlocks(doc.content ?? []);
+  return blocksToMarkdown(doc.content ?? []);
+}
+
+/** ブロックの並びを Markdown に変換する（他の形式から部分的に利用する） */
+export function blocksToMarkdown(blocks: DocNode[]): string {
+  const out = serializeBlocks(blocks);
   return out.replace(/\n{3,}/g, '\n\n').replace(/^\n+|\s+$/g, '');
+}
+
+/** インライン要素だけを Markdown に変換する（見出しテキスト等） */
+export function inlineToMarkdown(nodes: DocNode[]): string {
+  return serializeInline(nodes);
 }
 
 export const markdownExporter: Exporter = {
