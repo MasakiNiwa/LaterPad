@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { TextSelection } from '@tiptap/pm/state';
 import { NodeViewContent, NodeViewWrapper, type ReactNodeViewProps } from '@tiptap/react';
 import Box from '@mui/material/Box';
@@ -21,6 +21,15 @@ export function AiBlockView({ node, updateAttributes, editor, getPos }: ReactNod
   const style = ROLE_STYLE[info.role];
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const label = (node.attrs.label as string | null) ?? '';
+  // 名前は入力中は手元の状態だけを更新し、確定時（フォーカスが外れた時・Enter）に文書へ反映する。
+  // 1 文字ごとに文書を更新すると、エディタが選択範囲を取り戻して日本語入力（変換）が途切れるため。
+  const [draft, setDraft] = useState(label);
+  const [editing, setEditing] = useState(false);
+  if (!editing && draft !== label) setDraft(label);
+  const commitLabel = () => {
+    const next = draft.trim() || null;
+    if (next !== (node.attrs.label ?? null)) updateAttributes({ label: next });
+  };
 
   const unwrap = () => {
     const pos = getPos();
@@ -75,11 +84,18 @@ export function AiBlockView({ node, updateAttributes, editor, getPos }: ReactNod
             <ArrowDropDownIcon sx={{ fontSize: 16, ml: -0.25 }} />
           </ButtonBase>
           <InputBase
-            value={label}
-            onChange={(e) => updateAttributes({ label: e.target.value || null })}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onFocus={() => setEditing(true)}
+            onBlur={() => {
+              setEditing(false);
+              commitLabel();
+            }}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
                 e.preventDefault();
+                setEditing(false);
+                commitLabel();
                 const pos = getPos();
                 if (typeof pos !== 'number') return;
                 // 名前を付けたら、続けて中身を書けるようブロック内の文末へカーソルを移す
@@ -95,7 +111,10 @@ export function AiBlockView({ node, updateAttributes, editor, getPos }: ReactNod
             sx={{ flex: 1, minWidth: 0, fontSize: 12, color: 'text.secondary', '& input': { py: 0.25 } }}
           />
         </Box>
-        <NodeViewContent className="ai-block-content" />
+        <NodeViewContent
+          className="ai-block-content"
+          style={{ '--ai-hint': JSON.stringify(info.hint) } as CSSProperties}
+        />
       </Box>
       <Menu anchorEl={anchor} open={!!anchor} onClose={() => setAnchor(null)} disableRestoreFocus>
         {AI_BLOCK_ROLES.map((r) => (

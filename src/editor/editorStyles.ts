@@ -80,7 +80,16 @@ export function editorContentSx(fontSize: number, lineHeight: number, compact = 
         bgcolor: theme.palette.mode === 'dark' ? 'rgba(255, 152, 0, 0.6)' : 'rgba(255, 152, 0, 0.7)',
         outline: `1px solid ${theme.palette.mode === 'dark' ? '#ffb74d' : '#e65100'}`,
       },
-      '& p.is-editor-empty:first-of-type::before': {
+      // 空の意味ブロック: 役割ごとの書き方の例（AiBlockView が --ai-hint に設定）
+      '& .ai-block-content p.is-empty:only-child::before': {
+        content: 'var(--ai-hint)',
+        color: theme.m3.outline,
+        float: 'left',
+        height: 0,
+        pointerEvents: 'none',
+        fontSize: '0.92em',
+      },
+      '& > p.is-editor-empty:first-child::before': {
         content: 'attr(data-placeholder)',
         color: theme.m3.outline,
         float: 'left',

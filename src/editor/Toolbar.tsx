@@ -34,7 +34,8 @@ import DeleteForeverOutlinedIcon from '@mui/icons-material/DeleteForeverOutlined
 import AutoAwesomeOutlinedIcon from '@mui/icons-material/AutoAwesomeOutlined';
 import LayersClearOutlinedIcon from '@mui/icons-material/LayersClearOutlined';
 import { useTheme } from '@mui/material/styles';
-import { AI_BLOCK_NODE, AI_BLOCK_ROLES, roleInfo } from '../core/aiBlocks';
+import DashboardCustomizeOutlinedIcon from '@mui/icons-material/DashboardCustomizeOutlined';
+import { AI_BLOCK_NODE, AI_BLOCK_ROLES, AI_TEMPLATES, roleInfo, type AiBlockRole } from '../core/aiBlocks';
 import { ROLE_STYLE } from './aiBlock/roleStyle';
 import { GroupMenu, type GroupEntry } from './GroupMenu';
 import { TableSizePicker } from './TableSizePicker';
@@ -83,17 +84,32 @@ export function Toolbar({ editor, onLinkClick }: ToolbarProps) {
 
   const blockLabel = s.codeBlock ? 'コード' : s.blockquote ? '引用' : BLOCK_LABELS[s.heading];
 
+  const roleIcon = (role: AiBlockRole) => (
+    <Box component="span" sx={{ display: 'inline-flex', color: theme.palette.mode === 'dark' ? ROLE_STYLE[role].dark : ROLE_STYLE[role].light }}>
+      {ROLE_STYLE[role].icon()}
+    </Box>
+  );
   const ai: GroupEntry[] = [
-    { kind: 'header', label: s.aiRole ? 'このブロックの種類' : '選択した段落をブロックにする' },
+    { kind: 'header', label: 'テンプレートから始める' },
+    ...AI_TEMPLATES.map((t) => ({
+      label: t.label,
+      description: t.description,
+      icon: <DashboardCustomizeOutlinedIcon />,
+      onSelect: () => chain().insertAiTemplate(t.id).run(),
+    })),
+    { kind: 'divider' },
+    {
+      kind: 'header',
+      label: s.aiRole ? `「${roleInfo(s.aiRole).label}」の中に入れ子のブロックを作る` : '選択した段落をブロックにする',
+    },
     ...AI_BLOCK_ROLES.map((r) => ({
       label: r.label,
       description: r.description,
-      icon: <Box component="span" sx={{ display: 'inline-flex', color: theme.palette.mode === 'dark' ? ROLE_STYLE[r.role].dark : ROLE_STYLE[r.role].light }}>{ROLE_STYLE[r.role].icon()}</Box>,
-      active: s.aiRole === r.role,
-      onSelect: () => chain().setAiBlock(r.role).run(),
+      icon: roleIcon(r.role),
+      onSelect: () => chain().wrapAiBlock(r.role).run(),
     })),
     { kind: 'divider' },
-    { label: 'ブロックを解除', description: '中の文章は残します', icon: <LayersClearOutlinedIcon />, disabled: !s.aiRole, onSelect: () => chain().unsetAiBlock().run() },
+    { label: 'ブロックを解除', description: '中の文章は残します（種類の変更はブロックのラベルから）', icon: <LayersClearOutlinedIcon />, disabled: !s.aiRole, onSelect: () => chain().unsetAiBlock().run() },
   ];
   const aiLabel = s.aiRole ? roleInfo(s.aiRole).label : 'AI書式';
 
