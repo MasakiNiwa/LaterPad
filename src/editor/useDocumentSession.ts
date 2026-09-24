@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { DocNode } from '../core/document';
 import { isDocEmpty } from '../core/document';
 import { saveFile, type FsFileHandle, type OpenedFile } from '../core/file/fileAccess';
-import { createNewFile, titleFromFileName, type LaterPadFile } from '../core/file/format';
+import { createNewFile, titleFromFileName, type LaterPadFile, type Revision, type RevisionReason } from '../core/file/format';
+import { addRevision as addRevisionTo, removeRevision as removeRevisionFrom } from '../core/revisions';
 import { loadDraft, saveDraft } from '../core/storage/draft';
 
 const DRAFT_SAVE_DELAY = 400;
@@ -97,9 +98,38 @@ export function useDocumentSession(getContent: () => DocNode | null) {
     [replace],
   );
 
+  /** 現在の内容をリビジョンとして記録する。直前と同じ内容なら記録せず null */
+  const addRevision = useCallback(
+    (reason: RevisionReason, note?: string): Revision | null => {
+      const s = stateRef.current;
+      const content = getContentRef.current() ?? s.file.content;
+      const result = addRevisionTo({ ...s.file, content }, content, reason, { note });
+      if (!result.revision) return null;
+      const next = { ...s, dirty: true, file: { ...s.file, revisions: result.file.revisions } };
+      stateRef.current = next;
+      setState(next);
+      scheduleDraft();
+      return result.revision;
+    },
+    [scheduleDraft],
+  );
+
+  const removeRevision = useCallback(
+    (id: string) => {
+      const s = stateRef.current;
+      const next = { ...s, dirty: true, file: removeRevisionFrom(s.file, id) };
+      stateRef.current = next;
+      setState(next);
+      scheduleDraft();
+    },
+    [scheduleDraft],
+  );
+
   /** ファイルへ保存する。キャンセル時は null */
   const save = useCallback(
     async (saveAs = false) => {
+      // 保存時点の状態をリビジョンとして残してから書き出す
+      addRevision('save');
       const s = stateRef.current;
       const file = { ...snapshot(s), updatedAt: new Date().toISOString() };
       const result = await saveFile(file, handleRef.current, saveAs);
@@ -111,7 +141,7 @@ export function useDocumentSession(getContent: () => DocNode | null) {
       flushDraft();
       return result;
     },
-    [snapshot, flushDraft],
+    [snapshot, flushDraft, addRevision],
   );
 
   /** 保存していない変更を失う操作の前に確認が必要か */
@@ -123,7 +153,18 @@ export function useDocumentSession(getContent: () => DocNode | null) {
   }, []);
 
   return useMemo(
-    () => ({ state, markChanged, setTitle, newDocument, openDocument, save, snapshot, needsDiscardConfirm }),
-    [state, markChanged, setTitle, newDocument, openDocument, save, snapshot, needsDiscardConfirm],
+    () => ({
+      state,
+      markChanged,
+      setTitle,
+      newDocument,
+      openDocument,
+      save,
+      snapshot,
+      needsDiscardConfirm,
+      addRevision,
+      removeRevision,
+    }),
+    [state, markChanged, setTitle, newDocument, openDocument, save, snapshot, needsDiscardConfirm, addRevision, removeRevision],
   );
 }

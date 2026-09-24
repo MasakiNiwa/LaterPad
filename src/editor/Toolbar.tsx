@@ -231,7 +231,7 @@ function ToolButton({ title, shortcut, active, disabled, onClick, children }: To
           // ツールバー操作でエディタのフォーカス（選択範囲）を失わないようにする
           onMouseDown={(e) => e.preventDefault()}
           sx={{
-            borderRadius: 2,
+            borderRadius: '999px',
             color: active ? 'primary.main' : 'text.secondary',
             bgcolor: active ? (t) => t.m3.primaryContainer : 'transparent',
             '&:hover': { bgcolor: active ? (t) => t.m3.primaryContainer : undefined },

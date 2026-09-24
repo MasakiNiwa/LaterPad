@@ -42,7 +42,7 @@ export function editorContentSx(fontSize: FontSize): SxProps<Theme> {
       '& pre': {
         my: '0.6em',
         p: 2,
-        borderRadius: 3,
+        borderRadius: '12px',
         bgcolor: theme.m3.surfaceContainer,
         overflowX: 'auto',
         '& code': { bgcolor: 'transparent', p: 0, fontSize: '0.88em' },
