@@ -3,6 +3,7 @@ import Box from '@mui/material/Box';
 import ButtonBase from '@mui/material/ButtonBase';
 import Divider from '@mui/material/Divider';
 import Tooltip from '@mui/material/Tooltip';
+import { isCoarsePointer } from '../lib/viewport';
 
 /** アイコンの下にラベルが付いた操作ボタンを横に並べるバー */
 export function ActionBar({ children }: { children: ReactNode }) {
@@ -36,28 +37,36 @@ interface ActionButtonProps {
   /** 強調色で表示する（保存が必要な時など） */
   accent?: boolean;
   tooltip?: string;
-  /** スマホ幅では表示しない（「その他」メニューから使う） */
-  hideOnMobile?: boolean;
+  /**
+   * 押したときに本文の入力状態（カーソル）を保つ。戻す・進むなど、続けて入力する操作向け。
+   * false の場合、スマホではボタンを押すと本文の入力を終えてソフトウェアキーボードを閉じる。
+   */
+  keepFocus?: boolean;
 }
 
-export function ActionButton({ icon, label, onClick, disabled, active, accent, tooltip, hideOnMobile }: ActionButtonProps) {
+export function ActionButton({ icon, label, onClick, disabled, active, accent, tooltip, keepFocus }: ActionButtonProps) {
   const button = (
     <ButtonBase
       aria-label={label}
       aria-pressed={active}
       disabled={disabled}
-      onClick={onClick}
-      // エディタの選択範囲を保ったまま操作できるようにする
-      onMouseDown={(e) => e.preventDefault()}
+      onClick={(e) => {
+        if (!keepFocus && isCoarsePointer()) (document.activeElement as HTMLElement | null)?.blur?.();
+        onClick(e);
+      }}
+      // PC ではエディタの選択範囲を保ったまま操作できるようにする
+      onMouseDown={(e) => {
+        if (keepFocus || !isCoarsePointer()) e.preventDefault();
+      }}
       sx={(t) => ({
-        display: hideOnMobile ? { xs: 'none', sm: 'flex' } : 'flex',
+        display: 'flex',
         flexDirection: 'column',
         // スマホではボタンを均等幅で並べ、横スクロールなしで収める
         flex: { xs: '1 1 0', sm: '0 0 auto' },
         alignItems: 'center',
         justifyContent: 'center',
         gap: '2px',
-        minWidth: { xs: 0, sm: 60 },
+        minWidth: { xs: 'fit-content', sm: 60 },
         px: { xs: 0, sm: 0.75 },
         py: 0.5,
         borderRadius: '12px',

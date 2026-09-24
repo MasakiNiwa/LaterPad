@@ -14,6 +14,8 @@ export interface Draft {
 }
 
 const KEY = 'laterpad.draft.v2';
+/** 起動時に空の文書で始めた場合に、直前の下書きを退避しておく場所 */
+const PREVIOUS_KEY = 'laterpad.draft.previous';
 const LEGACY_KEY = 'laterpad.draft.v1';
 
 export function loadDraft(): Draft | null {
@@ -63,4 +65,28 @@ function migrateLegacy(): Draft | null {
   );
   localStorage.removeItem(LEGACY_KEY);
   return { file, fileName: null, dirty: true };
+}
+
+/** 直前の下書きを退避する（起動時に空の文書で始めるとき） */
+export function stashDraftAsPrevious(draft: Draft): void {
+  try {
+    localStorage.setItem(PREVIOUS_KEY, JSON.stringify({ file: JSON.parse(serializeFile(draft.file)), fileName: draft.fileName, dirty: draft.dirty }));
+  } catch {
+    // 退避できなくても起動は続ける
+  }
+}
+
+export function loadPreviousDraft(): Draft | null {
+  try {
+    const raw = localStorage.getItem(PREVIOUS_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw) as { file: unknown; fileName?: unknown; dirty?: unknown };
+    return {
+      file: parseFile(JSON.stringify(data.file)),
+      fileName: typeof data.fileName === 'string' ? data.fileName : null,
+      dirty: data.dirty !== false,
+    };
+  } catch {
+    return null;
+  }
 }
