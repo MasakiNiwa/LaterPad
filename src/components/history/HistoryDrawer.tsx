@@ -115,7 +115,7 @@ function RevisionList({ file, onClose, onRecord, onSelect }: HistoryDrawerProps 
           今の状態を記録
         </Button>
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1, px: 0.5 }}>
-          AI用にコピーした時・ファイルに保存した時・復元する前に自動で記録されます。
+          AI用にコピーした時（プロンプトを AI に渡した時点）と、復元する前に自動で記録されます。
         </Typography>
       </Box>
       {revisions.length === 0 ? (

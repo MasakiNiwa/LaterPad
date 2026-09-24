@@ -15,6 +15,8 @@ export type GroupEntry =
       kind?: 'item';
       label: string;
       icon: ReactNode;
+      /** 補足説明（2 行目に表示） */
+      description?: string;
       shortcut?: string;
       active?: boolean;
       disabled?: boolean;
@@ -111,7 +113,12 @@ export function GroupMenu({ label, icon, entries, active, highlight }: GroupMenu
               sx={entry.danger ? { color: 'error.main', '& .MuiListItemIcon-root': { color: 'error.main' } } : undefined}
             >
               <ListItemIcon>{entry.icon}</ListItemIcon>
-              <ListItemText>{entry.label}</ListItemText>
+              <ListItemText
+                primary={entry.label}
+                secondary={entry.description}
+                slotProps={{ secondary: { variant: 'caption' } }}
+                sx={{ my: entry.description ? 0.25 : undefined }}
+              />
               {entry.shortcut && (
                 <Typography variant="body2" color="text.secondary" sx={{ ml: 3, display: { xs: 'none', sm: 'block' } }}>
                   {entry.shortcut}

@@ -3,6 +3,8 @@ import Box from '@mui/material/Box';
 import Divider from '@mui/material/Divider';
 import Radio from '@mui/material/Radio';
 import Switch from '@mui/material/Switch';
+import Slider from '@mui/material/Slider';
+import Button from '@mui/material/Button';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Typography from '@mui/material/Typography';
@@ -12,7 +14,7 @@ import BrightnessAutoOutlinedIcon from '@mui/icons-material/BrightnessAutoOutlin
 import { Section, SubPageLayout } from '../components/SubPageLayout';
 import { exporters, RECOMMENDED, resolveExporter } from '../core/export';
 import { useSettings } from '../settings/SettingsContext';
-import type { FontSize, ThemeMode } from '../settings/settings';
+import { DEFAULT_SETTINGS, FONT_SIZE_RANGE, LINE_HEIGHT_RANGE, type ThemeMode } from '../settings/settings';
 
 export function SettingsPage() {
   const { settings, updateSettings } = useSettings();
@@ -53,19 +55,55 @@ export function SettingsPage() {
           </ToggleButtonGroup>
         </Row>
         <Divider />
-        <Row label="文字サイズ">
-          <ToggleButtonGroup
-            exclusive
-            size="small"
-            value={settings.fontSize}
-            onChange={(_, v: FontSize | null) => v && updateSettings({ fontSize: v })}
-            aria-label="文字サイズ"
+        <SliderRow
+          label="文字サイズ"
+          value={settings.fontSize}
+          display={`${settings.fontSize}px`}
+          range={FONT_SIZE_RANGE}
+          onChange={(v) => updateSettings({ fontSize: v })}
+        />
+        <SliderRow
+          label="行間"
+          value={settings.lineHeight}
+          display={settings.lineHeight.toFixed(1)}
+          range={LINE_HEIGHT_RANGE}
+          onChange={(v) => updateSettings({ lineHeight: Math.round(v * 10) / 10 })}
+        />
+        <Box
+          component="label"
+          sx={{ display: 'flex', alignItems: 'center', gap: 2, px: 2, py: 1, cursor: 'pointer' }}
+        >
+          <Box sx={{ flex: 1 }}>
+            <Typography sx={{ fontWeight: 500 }}>余白を狭くする</Typography>
+            <Typography variant="body2" color="text.secondary">
+              本文の左右や見出しまわりの余白を詰めて、画面に多く表示します。
+            </Typography>
+          </Box>
+          <Switch checked={settings.compact} onChange={(e) => updateSettings({ compact: e.target.checked })} />
+        </Box>
+        <Box sx={{ px: 2, pb: 2 }}>
+          <Typography variant="caption" color="text.secondary">
+            プレビュー
+          </Typography>
+          <Box
+            sx={(t) => ({
+              mt: 0.5,
+              p: 1.5,
+              borderRadius: '12px',
+              bgcolor: t.m3.surface,
+              border: `1px solid ${t.m3.outlineVariant}`,
+              fontSize: settings.fontSize,
+              lineHeight: settings.lineHeight,
+            })}
           >
-            <ToggleButton value="small">小</ToggleButton>
-            <ToggleButton value="medium">中</ToggleButton>
-            <ToggleButton value="large">大</ToggleButton>
-          </ToggleButtonGroup>
-        </Row>
+            普通に書く。AI に伝わる形でコピーする。
+            <br />
+            LaterPad は書式をAIに渡すための専用エディタです。
+          </Box>
+          <Button size="small" sx={{ mt: 1 }} onClick={() => updateSettings({ fontSize: DEFAULT_SETTINGS.fontSize, lineHeight: DEFAULT_SETTINGS.lineHeight, compact: DEFAULT_SETTINGS.compact })}>
+            標準に戻す
+          </Button>
+        </Box>
       </Section>
 
       <Section title="AI用コピーの形式">
@@ -152,6 +190,38 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
     >
       <Typography sx={{ fontWeight: 500 }}>{label}</Typography>
       {children}
+    </Box>
+  );
+}
+
+function SliderRow({
+  label,
+  value,
+  display,
+  range,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  display: string;
+  range: { min: number; max: number; step: number };
+  onChange: (v: number) => void;
+}) {
+  return (
+    <Box sx={{ px: 2, pt: 1.5 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+        <Typography sx={{ fontWeight: 500 }}>{label}</Typography>
+        <Typography color="text.secondary">{display}</Typography>
+      </Box>
+      <Slider
+        value={value}
+        min={range.min}
+        max={range.max}
+        step={range.step}
+        onChange={(_, v) => onChange(v as number)}
+        aria-label={label}
+        size="small"
+      />
     </Box>
   );
 }

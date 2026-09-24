@@ -3,6 +3,7 @@ import StarterKit from '@tiptap/starter-kit';
 import { TableKit } from '@tiptap/extension-table';
 import { Placeholder } from '@tiptap/extensions';
 import { Search } from './search';
+import { AiBlock } from './aiBlock/AiBlock';
 
 /**
  * エディタで扱う書式。
@@ -24,5 +25,6 @@ export function createExtensions(placeholder: string): Extensions {
     }),
     Placeholder.configure({ placeholder }),
     Search,
+    AiBlock,
   ];
 }

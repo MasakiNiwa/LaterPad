@@ -1,4 +1,5 @@
 import type { DocNode } from '../document';
+import { AI_BLOCK_NODE, roleInfo } from '../aiBlocks';
 import { tableToGrid } from './tableGrid';
 import type { Exporter } from './types';
 
@@ -37,6 +38,13 @@ function stripBlock(node: DocNode): string {
         .join('\n');
     case 'horizontalRule':
       return '';
+    case AI_BLOCK_NODE: {
+      const info = roleInfo(node.attrs?.role);
+      const body = stripBlocks(node.content ?? []).trim();
+      if (!info.tag || !body) return '';
+      const label = typeof node.attrs?.label === 'string' && node.attrs.label.trim() ? `：${node.attrs.label.trim()}` : '';
+      return `【${info.label}${label}】\n${body}`;
+    }
     case 'codeBlock':
       return (node.content ?? []).map((n) => n.text ?? '').join('');
     case 'text':

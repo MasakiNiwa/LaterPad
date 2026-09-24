@@ -1,4 +1,5 @@
 import type { DocMark, DocNode } from '../document';
+import { AI_BLOCK_NODE, roleInfo } from '../aiBlocks';
 import { tableToGrid } from './tableGrid';
 import type { Exporter } from './types';
 
@@ -74,10 +75,22 @@ function serializeBlock(node: DocNode): string {
       return '---';
     case 'table':
       return serializeTable(node);
+    case AI_BLOCK_NODE:
+      return serializeAiBlock(node);
     default:
       // 未知のブロックは中身だけを出力して情報を落とさない
       return node.content ? serializeBlocks(node.content) : (node.text ?? '');
   }
+}
+
+/** Markdown では意味ブロックを「【指示】」のような見出し行で表す。メモは出力しない */
+function serializeAiBlock(node: DocNode): string {
+  const info = roleInfo(node.attrs?.role);
+  if (!info.tag) return '';
+  const body = serializeBlocks(node.content ?? []).trim();
+  if (!body) return '';
+  const label = typeof node.attrs?.label === 'string' && node.attrs.label.trim() ? `：${node.attrs.label.trim()}` : '';
+  return `**【${info.label}${label}】**\n${body}`;
 }
 
 function serializeList(node: DocNode, ordered: boolean): string {
