@@ -33,7 +33,7 @@ export function PreviewDialog({ open, onClose, text, formatLabel, onCopy }: Prev
           sx={(t) => ({
             m: 0,
             p: 2,
-            borderRadius: 3,
+            borderRadius: '12px',
             bgcolor: t.m3.surfaceContainerLow,
             fontFamily: '"Roboto Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
             fontSize: 14,

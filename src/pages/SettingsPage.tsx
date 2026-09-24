@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import Box from '@mui/material/Box';
 import Divider from '@mui/material/Divider';
 import Radio from '@mui/material/Radio';
+import Switch from '@mui/material/Switch';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Typography from '@mui/material/Typography';
@@ -91,6 +92,24 @@ export function SettingsPage() {
             </Box>
           </Box>
         ))}
+      </Section>
+
+      <Section title="履歴">
+        <Box
+          component="label"
+          sx={{ display: 'flex', alignItems: 'center', gap: 2, px: 2, py: 1.5, cursor: 'pointer' }}
+        >
+          <Box sx={{ flex: 1 }}>
+            <Typography sx={{ fontWeight: 500 }}>AI用にコピーした時点を記録する</Typography>
+            <Typography variant="body2" color="text.secondary">
+              コピーするたびに、その時点の内容を履歴に残します（直前と同じ内容なら記録しません）。
+            </Typography>
+          </Box>
+          <Switch
+            checked={settings.revisionOnCopy}
+            onChange={(e) => updateSettings({ revisionOnCopy: e.target.checked })}
+          />
+        </Box>
       </Section>
 
       <Typography variant="body2" color="text.secondary" sx={{ px: 1 }}>

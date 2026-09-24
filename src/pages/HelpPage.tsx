@@ -86,6 +86,14 @@ export function HelpPage() {
         </Typography>
       </Section>
 
+      <Section title="履歴（リビジョン）">
+        <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>
+          時計のアイコンから、この文書の過去の状態を確認できます。「AI用にコピー」した時点・ファイルに保存した時点・
+          復元する前の状態が自動で記録され、「今の状態を記録」で手動でも残せます。各履歴は現在や前の版との差分を表示でき、
+          「この版に戻す」で復元、「この版をコピー」でその時点の内容を AI 用にコピーできます。履歴は文書ファイルに一緒に保存されます。
+        </Typography>
+      </Section>
+
       <Section title="キーボードショートカット">
         <KeyTable rows={shortcuts} />
       </Section>

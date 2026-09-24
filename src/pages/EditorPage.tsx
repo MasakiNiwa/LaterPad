@@ -25,12 +25,16 @@ import NoteAddOutlinedIcon from '@mui/icons-material/NoteAddOutlined';
 import FolderOpenOutlinedIcon from '@mui/icons-material/FolderOpenOutlined';
 import SaveOutlinedIcon from '@mui/icons-material/SaveOutlined';
 import SaveAsOutlinedIcon from '@mui/icons-material/SaveAsOutlined';
+import HistoryIcon from '@mui/icons-material/History';
 import { Brand } from '../components/Brand';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { PreviewDialog } from '../components/PreviewDialog';
+import { HistoryDrawer } from '../components/history/HistoryDrawer';
 import { plainTextOf, type DocNode } from '../core/document';
 import { openFileWithPicker, readFile, type OpenedFile } from '../core/file/fileAccess';
-import { FileFormatError } from '../core/file/format';
+import { FileFormatError, type Revision } from '../core/file/format';
+import { exportDoc } from '../core/export';
+import { copyText } from '../lib/clipboard';
 import { createExtensions } from '../editor/extensions';
 import { editorContentSx } from '../editor/editorStyles';
 import { LinkDialog } from '../editor/LinkDialog';
@@ -77,14 +81,50 @@ export function EditorPage() {
   const [linkOpen, setLinkOpen] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [pending, setPending] = useState<PendingAction | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [restoreTarget, setRestoreTarget] = useState<Revision | null>(null);
 
   const handleCopy = useCallback(async () => {
     const result = await copy();
     if (result.empty) setToast('コピーする内容がありません');
-    else if (result.ok)
+    else if (result.ok) {
+      // 「AIに渡した時点」を履歴として残す
+      if (settings.revisionOnCopy) session.addRevision('copy');
       setToast(`AI用にコピーしました（${result.formatLabel}・${result.length.toLocaleString()} 文字）`);
-    else setToast('コピーできませんでした。ブラウザの権限を確認してください');
-  }, [copy]);
+    } else setToast('コピーできませんでした。ブラウザの権限を確認してください');
+  }, [copy, session, settings.revisionOnCopy]);
+
+  // ------------------------------------------------------------ revisions
+
+  const getCurrentContent = useCallback(
+    () => (editorRef.current?.getJSON() as DocNode | undefined) ?? state.file.content,
+    [state.file.content],
+  );
+
+  const restoreRevision = useCallback(
+    (revision: Revision) => {
+      if (!editor) return;
+      // 復元前の状態を残しておき、復元自体も取り消せるようにする
+      session.addRevision('restore');
+      editor.chain().setContent(revision.content, { emitUpdate: true }).focus('start').run();
+      setHistoryOpen(false);
+      setToast(`${formatShort(revision.createdAt)} の版に戻しました`);
+    },
+    [editor, session],
+  );
+
+  const copyRevision = useCallback(
+    async (revision: Revision) => {
+      const { exporter, text } = exportDoc(revision.content, settings.copyFormat);
+      try {
+        await copyText(text);
+        setToast(`この版をコピーしました（${exporter.label}・${text.length.toLocaleString()} 文字）`);
+      } catch {
+        setToast('コピーできませんでした');
+      }
+    },
+    [settings.copyFormat],
+  );
 
   const openPreview = useCallback(() => {
     const { exporter, text } = render();
@@ -221,6 +261,11 @@ export function EditorPage() {
               <SaveOutlinedIcon />
             </IconButton>
           </Tooltip>
+          <Tooltip title="履歴">
+            <IconButton aria-label="履歴" onClick={() => setHistoryOpen(true)}>
+              <HistoryIcon />
+            </IconButton>
+          </Tooltip>
           <Tooltip title="コピー内容をプレビュー">
             <IconButton aria-label="コピー内容をプレビュー" onClick={openPreview}>
               <VisibilityOutlinedIcon />
@@ -347,6 +392,31 @@ export function EditorPage() {
           void handleCopy();
         }}
       />
+      <HistoryDrawer
+        open={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        file={state.file}
+        exporterId={settings.copyFormat}
+        getCurrentContent={getCurrentContent}
+        onRecord={() => {
+          const rev = session.addRevision('manual');
+          setToast(rev ? '今の状態を履歴に記録しました' : '記録できませんでした');
+        }}
+        onRestore={setRestoreTarget}
+        onCopy={(r) => void copyRevision(r)}
+        onDelete={(r) => {
+          session.removeRevision(r.id);
+          setToast('履歴を削除しました');
+        }}
+      />
+      <ConfirmDialog
+        open={!!restoreTarget}
+        title="この版に戻しますか？"
+        message="現在の内容は「復元前の状態」として履歴に残るため、あとから戻すこともできます。"
+        confirmLabel="この版に戻す"
+        onConfirm={() => restoreTarget && restoreRevision(restoreTarget)}
+        onClose={() => setRestoreTarget(null)}
+      />
       <ConfirmDialog
         open={!!pending}
         title="保存されていない変更があります"
@@ -370,6 +440,10 @@ export function EditorPage() {
       />
     </Box>
   );
+}
+
+function formatShort(iso: string): string {
+  return new Date(iso).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
 interface MenuEntryProps {

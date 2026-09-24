@@ -8,12 +8,15 @@ export interface Settings {
   /** 'recommended' または exporter の ID */
   copyFormat: string;
   fontSize: FontSize;
+  /** AI用にコピーした時点をリビジョンとして自動記録する */
+  revisionOnCopy: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
   themeMode: 'system',
   copyFormat: RECOMMENDED,
   fontSize: 'medium',
+  revisionOnCopy: true,
 };
 
 const STORAGE_KEY = 'laterpad.settings.v1';
