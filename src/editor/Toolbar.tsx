@@ -34,6 +34,11 @@ import DeleteForeverOutlinedIcon from '@mui/icons-material/DeleteForeverOutlined
 import AutoAwesomeOutlinedIcon from '@mui/icons-material/AutoAwesomeOutlined';
 import LayersClearOutlinedIcon from '@mui/icons-material/LayersClearOutlined';
 import { useTheme } from '@mui/material/styles';
+import ChecklistIcon from '@mui/icons-material/Checklist';
+import KeyboardReturnIcon from '@mui/icons-material/KeyboardReturn';
+import PriorityHighIcon from '@mui/icons-material/PriorityHigh';
+import ThumbUpOutlinedIcon from '@mui/icons-material/ThumbUpOutlined';
+import { PRIORITY_COLORS } from './editorStyles';
 import DashboardCustomizeOutlinedIcon from '@mui/icons-material/DashboardCustomizeOutlined';
 import { AI_BLOCK_NODE, AI_BLOCK_ROLES, AI_TEMPLATES, roleInfo, type AiBlockRole } from '../core/aiBlocks';
 import { ROLE_STYLE } from './aiBlock/roleStyle';
@@ -67,8 +72,11 @@ export function Toolbar({ editor, onLinkClick }: ToolbarProps) {
       link: e.isActive('link'),
       bulletList: e.isActive('bulletList'),
       orderedList: e.isActive('orderedList'),
-      canSink: e.can().sinkListItem('listItem'),
-      canLift: e.can().liftListItem('listItem'),
+      taskList: e.isActive('taskList'),
+      inListItem: e.isActive('listItem') || e.isActive('taskItem'),
+      priority: e.isActive('priority') ? String(e.getAttributes('priority').level ?? 'must') : null,
+      canSink: e.can().sinkListItem('listItem') || e.can().sinkListItem('taskItem'),
+      canLift: e.can().liftListItem('listItem') || e.can().liftListItem('taskItem'),
       table: e.isActive('table'),
       aiRole: e.isActive(AI_BLOCK_NODE) ? String(e.getAttributes(AI_BLOCK_NODE).role ?? '') : null,
       canMerge: e.can().mergeCells(),
@@ -109,6 +117,11 @@ export function Toolbar({ editor, onLinkClick }: ToolbarProps) {
       onSelect: () => chain().wrapAiBlock(r.role).run(),
     })),
     { kind: 'divider' },
+    { kind: 'header', label: '重要度（選択した文字、または今の行）' },
+    { label: '必須', description: '必ず守ってほしい（【必須】が付きます）', icon: <PriorityHighIcon sx={{ color: PRIORITY_COLORS.must }} />, active: s.priority === 'must', onSelect: () => chain().setPriority('must').run() },
+    { label: '推奨', description: 'できれば守ってほしい（【推奨】が付きます）', icon: <ThumbUpOutlinedIcon sx={{ color: PRIORITY_COLORS.should }} />, active: s.priority === 'should', onSelect: () => chain().setPriority('should').run() },
+    { label: '重要度を外す', icon: <FormatClearIcon />, disabled: !s.priority, onSelect: () => chain().unsetPriority().run() },
+    { kind: 'divider' },
     { label: 'ブロックを解除', description: '中の文章は残します（種類の変更はブロックのラベルから）', icon: <LayersClearOutlinedIcon />, disabled: !s.aiRole, onSelect: () => chain().unsetAiBlock().run() },
   ];
   const aiLabel = s.aiRole ? roleInfo(s.aiRole).label : 'AI書式';
@@ -139,9 +152,11 @@ export function Toolbar({ editor, onLinkClick }: ToolbarProps) {
   const list: GroupEntry[] = [
     { label: '箇条書き', icon: <FormatListBulletedIcon />, active: s.bulletList, shortcut: `${mod}+Shift+8`, onSelect: () => chain().toggleBulletList().run() },
     { label: '番号付きリスト', icon: <FormatListNumberedIcon />, active: s.orderedList, shortcut: `${mod}+Shift+7`, onSelect: () => chain().toggleOrderedList().run() },
+    { label: 'チェックリスト', icon: <ChecklistIcon />, active: s.taskList, shortcut: `${mod}+Shift+9`, onSelect: () => chain().toggleTaskList().run() },
     { kind: 'divider' },
-    { label: '字下げ（入れ子にする）', icon: <FormatIndentIncreaseIcon />, disabled: !s.canSink, shortcut: 'Tab', onSelect: () => chain().sinkListItem('listItem').run() },
-    { label: '字下げを戻す', icon: <FormatIndentDecreaseIcon />, disabled: !s.canLift, shortcut: 'Shift+Tab', onSelect: () => chain().liftListItem('listItem').run() },
+    { label: '項目内で改行', description: '新しい項目にせず、同じ項目の中で改行します', icon: <KeyboardReturnIcon />, disabled: !s.inListItem, shortcut: 'Shift+Enter', onSelect: () => chain().setHardBreak().run() },
+    { label: '字下げ（入れ子にする）', icon: <FormatIndentIncreaseIcon />, disabled: !s.canSink, shortcut: 'Tab', onSelect: () => chain().sinkListItem(s.taskList ? 'taskItem' : 'listItem').run() },
+    { label: '字下げを戻す', icon: <FormatIndentDecreaseIcon />, disabled: !s.canLift, shortcut: 'Shift+Tab', onSelect: () => chain().liftListItem(s.taskList ? 'taskItem' : 'listItem').run() },
   ];
 
   const insert: GroupEntry[] = [
@@ -190,7 +205,7 @@ export function Toolbar({ editor, onLinkClick }: ToolbarProps) {
       <GroupMenu label={aiLabel} icon={<AutoAwesomeOutlinedIcon />} entries={ai} active={!!s.aiRole} />
       <GroupMenu label={blockLabel} icon={<TitleIcon />} entries={paragraph} active={!!s.heading || s.blockquote || s.codeBlock} />
       <GroupMenu label="文字" icon={<TextFieldsIcon />} entries={text} active={s.bold || s.italic || s.strike || s.code} />
-      <GroupMenu label="リスト" icon={<FormatListBulletedIcon />} entries={list} active={s.bulletList || s.orderedList} />
+      <GroupMenu label="リスト" icon={<FormatListBulletedIcon />} entries={list} active={s.bulletList || s.orderedList || s.taskList} />
       <GroupMenu label="挿入" icon={<AddBoxOutlinedIcon />} entries={insert} active={s.link} />
       {s.table && <GroupMenu label="表" icon={<TableChartOutlinedIcon />} entries={table} highlight />}
 

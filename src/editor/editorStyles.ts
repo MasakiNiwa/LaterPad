@@ -1,6 +1,9 @@
 import type { SxProps, Theme } from '@mui/material/styles';
 
 /** ProseMirror が生成する DOM へのスタイル */
+/** 重要度の色（必須・推奨） */
+export const PRIORITY_COLORS = { must: '#d9480f', should: '#1c7ed6' } as const;
+
 export function editorContentSx(fontSize: number, lineHeight: number, compact = false): SxProps<Theme> {
   return (theme) => ({
     '& .ProseMirror': {
@@ -72,6 +75,40 @@ export function editorContentSx(fontSize: number, lineHeight: number, compact = 
           pointerEvents: 'none',
         },
       },
+      // チェックリスト
+      '& ul[data-type="taskList"]': {
+        listStyle: 'none',
+        pl: '0.2em',
+        '& li': { display: 'flex', alignItems: 'flex-start', gap: '0.5em' },
+        '& li > label': { flexShrink: 0, userSelect: 'none', mt: '0.1em' },
+        '& li > label input': { width: '1.05em', height: '1.05em', accentColor: theme.palette.primary.main, cursor: 'pointer', m: 0 },
+        '& li > div': { flex: 1, minWidth: 0 },
+        '& ul[data-type="taskList"]': { pl: 0 },
+      },
+      // 重要度（必須／推奨）: 下線とラベル
+      '& .priority': {
+        textDecoration: 'underline',
+        textDecorationThickness: '2px',
+        textUnderlineOffset: '3px',
+      },
+      '& .priority[data-priority="must"]': { textDecorationColor: PRIORITY_COLORS.must },
+      '& .priority[data-priority="should"]': { textDecorationColor: PRIORITY_COLORS.should },
+      '& .priority::before': {
+        display: 'inline-block',
+        fontSize: '0.68em',
+        fontWeight: 700,
+        lineHeight: 1.4,
+        px: '0.4em',
+        mr: '0.3em',
+        borderRadius: '4px',
+        color: '#fff',
+        verticalAlign: '0.15em',
+        textDecoration: 'none',
+      },
+      '& .priority[data-priority="must"]::before': { content: '"必須"', bgcolor: PRIORITY_COLORS.must },
+      '& .priority[data-priority="should"]::before': { content: '"推奨"', bgcolor: PRIORITY_COLORS.should },
+      // 同じ重要度が続く場合（書式の切れ目）はラベルを繰り返さない
+      '& .priority[data-priority="must"] + .priority[data-priority="must"]::before, & .priority[data-priority="should"] + .priority[data-priority="should"]::before': { content: 'none' },
       '& .search-match': {
         bgcolor: theme.palette.mode === 'dark' ? 'rgba(255, 213, 79, 0.28)' : 'rgba(255, 213, 79, 0.55)',
         borderRadius: '2px',

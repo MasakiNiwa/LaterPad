@@ -43,6 +43,7 @@ import { TableQuickBar } from '../editor/TableQuickBar';
 import { useCopyForAI } from '../editor/useCopyForAI';
 import { useDocumentSession } from '../editor/useDocumentSession';
 import { modKey } from '../lib/platform';
+import { onNotify } from '../lib/notify';
 import { isCoarsePointer, useVisualViewport } from '../lib/viewport';
 import { useSettings } from '../settings/SettingsContext';
 
@@ -290,6 +291,14 @@ export function EditorPage() {
       window.removeEventListener('drop', onDrop, true);
     };
   }, [guarded]);
+
+  // リスト項目内の Enter の動作（設定）
+  useEffect(() => {
+    if (editor) editor.storage.listEnter.lineBreak = settings.listEnterLineBreak;
+  }, [editor, settings.listEnterLineBreak]);
+
+  // エディタ内の部品（意味ブロックのメニューなど）からのお知らせ
+  useEffect(() => onNotify((message) => notify(message)), [notify]);
 
   // アプリ全体のショートカット
   useEffect(() => {

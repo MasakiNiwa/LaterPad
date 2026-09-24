@@ -4,6 +4,9 @@ import { TableKit } from '@tiptap/extension-table';
 import { Placeholder } from '@tiptap/extensions';
 import { Search } from './search';
 import { AiBlock } from './aiBlock/AiBlock';
+import { TaskItem, TaskList } from '@tiptap/extension-list';
+import { Priority } from './priority';
+import { ListEnter } from './listEnter';
 
 /**
  * エディタで扱う書式。
@@ -31,5 +34,9 @@ export function createExtensions(placeholder: string): Extensions {
     }),
     Search,
     AiBlock,
+    TaskList,
+    TaskItem.configure({ nested: true }),
+    Priority,
+    ListEnter,
   ];
 }

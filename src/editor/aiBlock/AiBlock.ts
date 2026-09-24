@@ -1,5 +1,6 @@
 import { Node, mergeAttributes, ReactNodeViewRenderer, type Editor } from '@tiptap/react';
-import { TextSelection } from '@tiptap/pm/state';
+import { NodeSelection, Plugin, PluginKey, TextSelection } from '@tiptap/pm/state';
+import type { Node as PMNode } from '@tiptap/pm/model';
 import { AI_BLOCK_NODE, AI_TEMPLATES, roleInfo, templateContent, type AiBlockRole } from '../../core/aiBlocks';
 import { AiBlockView } from './AiBlockView';
 
@@ -14,8 +15,28 @@ declare module '@tiptap/core' {
       wrapAiBlock: (role: AiBlockRole) => ReturnType;
       /** テンプレート（空のブロックの組み合わせ）を挿入する */
       insertAiTemplate: (templateId: string) => ReturnType;
+      /** pos の意味ブロックを中身ごと削除する */
+      deleteAiBlockAt: (pos: number) => ReturnType;
+      /** pos の意味ブロックを同じ階層の中で前後に移動する */
+      moveAiBlockAt: (pos: number, direction: -1 | 1) => ReturnType;
+      /** pos の意味ブロックの中身だけを選択する */
+      selectAiBlockContentAt: (pos: number) => ReturnType;
+      /** pos の意味ブロックの中身を空にする（ブロックは残す） */
+      clearAiBlockContentAt: (pos: number) => ReturnType;
     };
   }
+}
+
+/** 親ノードの index 番目の子が始まる位置（親の中身の先頭からの距離） */
+function childOffset(parent: PMNode, index: number): number {
+  let offset = 0;
+  for (let i = 0; i < index && i < parent.childCount; i++) offset += parent.child(i).nodeSize;
+  return offset;
+}
+
+/** 意味ブロックの中身全体を覆うテキスト選択 */
+function contentSelection(doc: PMNode, pos: number, nodeSize: number) {
+  return TextSelection.between(doc.resolve(pos + 1), doc.resolve(pos + nodeSize - 1));
 }
 
 /** AI書式の意味ブロック（指示・背景・条件・資料・出力形式・例・メモ） */
@@ -24,6 +45,8 @@ export const AiBlock = Node.create({
   group: 'block',
   content: 'block+',
   defining: true,
+  // ラベル左のつまみでドラッグして並べ替えられるようにする
+  draggable: true,
 
   addAttributes() {
     return {
@@ -63,6 +86,20 @@ export const AiBlock = Node.create({
       return { $from, wrapper, index: $from.index(d) };
     };
     return {
+      // 意味ブロックの中で全選択 → まずブロックの中身だけ。もう一度押すと外側（最終的に文書全体）
+      'Mod-a': ({ editor }) => {
+        const { state } = editor;
+        const { $from, from, to } = state.selection;
+        for (let d = $from.depth; d > 0; d--) {
+          const node = $from.node(d);
+          if (node.type.name !== AI_BLOCK_NODE) continue;
+          const sel = contentSelection(state.doc, $from.before(d), node.nodeSize);
+          if (from <= sel.from && to >= sel.to) continue;
+          editor.view.dispatch(state.tr.setSelection(sel));
+          return true;
+        }
+        return false;
+      },
       // 最後の空行で Enter → ブロックの外へ出る（続けて普通の文章を書ける）
       Enter: ({ editor }) => {
         const c = directChild(editor);
@@ -77,6 +114,56 @@ export const AiBlock = Node.create({
         return editor.commands.lift(AI_BLOCK_NODE);
       },
     };
+  },
+
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        key: new PluginKey('aiBlockDrop'),
+        props: {
+          // 意味ブロックのドラッグは、元と同じ階層（同じ親の中）での並べ替えに限定する
+          handleDrop: (view, event, _slice, moved) => {
+            const { selection, doc } = view.state;
+            if (!moved || !(selection instanceof NodeSelection) || selection.node.type.name !== AI_BLOCK_NODE) return false;
+            const coords = view.posAtCoords({ left: event.clientX, top: event.clientY });
+            if (!coords) return false;
+            const $origin = doc.resolve(selection.from);
+            const depth = $origin.depth;
+            const parent = $origin.parent;
+            const parentStart = $origin.start(depth);
+            const $drop = doc.resolve(coords.pos);
+
+            // 落とした位置が同じ親の中なら、その位置にある子の前後どちらかへ。外なら先頭か末尾へ
+            let index: number;
+            const sameParent = $drop.depth >= depth && $drop.start(depth) === parentStart;
+            if (sameParent) {
+              index = $drop.index(depth);
+              const childPos = parentStart + childOffset(parent, index);
+              const dom = view.nodeDOM(childPos) as HTMLElement | null;
+              if (dom?.getBoundingClientRect) {
+                const rect = dom.getBoundingClientRect();
+                if (event.clientY > rect.top + rect.height / 2) index += 1;
+              }
+            } else {
+              index = coords.pos < parentStart ? 0 : parent.childCount;
+            }
+            const originIndex = $origin.index(depth);
+            if (index === originIndex || index === originIndex + 1) return true; // 位置が変わらない
+
+            const node = selection.node;
+            const target = parentStart + childOffset(parent, index);
+            const tr = view.state.tr.insert(target, node);
+            const from = tr.mapping.map(selection.from, 1);
+            tr.delete(from, from + node.nodeSize);
+            const inserted = tr.mapping.map(target, -1);
+            tr.setSelection(TextSelection.near(tr.doc.resolve(inserted + 1)));
+            view.dispatch(tr.scrollIntoView());
+            event.preventDefault();
+            return true;
+          },
+        },
+      }),
+    ];
   },
 
   addCommands() {
@@ -95,6 +182,52 @@ export const AiBlock = Node.create({
         (role) =>
         ({ commands }) =>
           commands.wrapIn(AI_BLOCK_NODE, { role }),
+      deleteAiBlockAt:
+        (pos) =>
+        ({ state, tr, dispatch }) => {
+          const node = state.doc.nodeAt(pos);
+          if (node?.type.name !== AI_BLOCK_NODE) return false;
+          if (dispatch) {
+            tr.delete(pos, pos + node.nodeSize);
+            tr.setSelection(TextSelection.near(tr.doc.resolve(Math.min(pos, tr.doc.content.size))));
+          }
+          return true;
+        },
+      moveAiBlockAt:
+        (pos, direction) =>
+        ({ state, tr, dispatch }) => {
+          const node = state.doc.nodeAt(pos);
+          if (node?.type.name !== AI_BLOCK_NODE) return false;
+          const $pos = state.doc.resolve(pos);
+          const sibling = $pos.parent.maybeChild($pos.index() + direction);
+          if (!sibling) return false;
+          if (dispatch) {
+            tr.delete(pos, pos + node.nodeSize);
+            const target = direction < 0 ? pos - sibling.nodeSize : pos + sibling.nodeSize;
+            tr.insert(target, node);
+            tr.setSelection(TextSelection.near(tr.doc.resolve(target + 1))).scrollIntoView();
+          }
+          return true;
+        },
+      selectAiBlockContentAt:
+        (pos) =>
+        ({ state, tr, dispatch }) => {
+          const node = state.doc.nodeAt(pos);
+          if (node?.type.name !== AI_BLOCK_NODE) return false;
+          if (dispatch) tr.setSelection(contentSelection(state.doc, pos, node.nodeSize));
+          return true;
+        },
+      clearAiBlockContentAt:
+        (pos) =>
+        ({ state, tr, dispatch }) => {
+          const node = state.doc.nodeAt(pos);
+          if (node?.type.name !== AI_BLOCK_NODE) return false;
+          if (dispatch) {
+            tr.replaceWith(pos + 1, pos + node.nodeSize - 1, state.schema.nodes.paragraph.create());
+            tr.setSelection(TextSelection.near(tr.doc.resolve(pos + 2)));
+          }
+          return true;
+        },
       insertAiTemplate:
         (templateId) =>
         ({ editor, chain }) => {

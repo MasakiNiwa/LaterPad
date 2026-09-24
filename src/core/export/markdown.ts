@@ -67,6 +67,8 @@ function serializeBlock(node: DocNode): string {
       return serializeList(node, false);
     case 'orderedList':
       return serializeList(node, true);
+    case 'taskList':
+      return serializeTaskList(node);
     case 'blockquote':
       return prefixLines(serializeBlocks(node.content ?? []), '> ', '>');
     case 'codeBlock':
@@ -106,6 +108,18 @@ function serializeList(node: DocNode, ordered: boolean): string {
     .join('\n');
 }
 
+/** チェックボックス付きリスト（GFM のタスクリスト記法） */
+function serializeTaskList(node: DocNode): string {
+  return (node.content ?? [])
+    .map((item) => {
+      const marker = item.attrs?.checked ? '- [x] ' : '- [ ] ';
+      const body = serializeBlocks(item.content ?? [], isTightItem(item));
+      if (body.trim() === '') return marker.trimEnd();
+      return prefixLines(body, marker, '', '  ');
+    })
+    .join('\n');
+}
+
 /** 段落 1 つ + 入れ子リスト程度のリスト項目は、空行なしで詰めて出力する */
 function isTightItem(item: DocNode): boolean {
   const blocks = item.content ?? [];
@@ -139,7 +153,7 @@ function serializeCell(cell: DocNode): string {
 
 // ---------------------------------------------------------------- inline
 
-const MARK_ORDER = ['link', 'bold', 'italic', 'strike', 'code'] as const;
+const MARK_ORDER = ['priority', 'link', 'bold', 'italic', 'strike', 'code'] as const;
 type SupportedMark = (typeof MARK_ORDER)[number];
 
 function supportedMarks(node: DocNode): DocMark[] {
@@ -154,11 +168,16 @@ function supportedMarks(node: DocNode): DocMark[] {
 }
 
 function sameMark(a: DocMark, b: DocMark): boolean {
-  return a.type === b.type && (a.type !== 'link' || a.attrs?.href === b.attrs?.href);
+  if (a.type !== b.type) return false;
+  if (a.type === 'link') return a.attrs?.href === b.attrs?.href;
+  if (a.type === 'priority') return a.attrs?.level === b.attrs?.level;
+  return true;
 }
 
 function openMark(mark: DocMark, codeText: string): string {
   switch (mark.type) {
+    case 'priority':
+      return priorityPrefix(mark);
     case 'link':
       return '[';
     case 'bold':
@@ -176,6 +195,7 @@ function openMark(mark: DocMark, codeText: string): string {
 
 function closeMark(mark: DocMark, codeText: string): string {
   if (mark.type === 'link') return `](${String(mark.attrs?.href ?? '')})`;
+  if (mark.type === 'priority') return '';
   return openMark(mark, codeText);
 }
 
@@ -244,6 +264,11 @@ function serializeInline(nodes: DocNode[]): string {
   }
   closeTo(0);
   return out + pendingWs;
+}
+
+/** 重要度（必須／推奨）は、該当箇所の先頭に【必須】【推奨】を付けて伝える */
+export function priorityPrefix(mark: DocMark): string {
+  return mark.attrs?.level === 'should' ? '【推奨】' : '【必須】';
 }
 
 // ---------------------------------------------------------------- utils

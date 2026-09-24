@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from 'react';
+import { useState, type CSSProperties, type ReactNode } from 'react';
 import { TextSelection } from '@tiptap/pm/state';
 import { NodeViewContent, NodeViewWrapper, type ReactNodeViewProps } from '@tiptap/react';
 import Box from '@mui/material/Box';
@@ -12,6 +12,17 @@ import MenuItem from '@mui/material/MenuItem';
 import { alpha } from '@mui/material/styles';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import LayersClearOutlinedIcon from '@mui/icons-material/LayersClearOutlined';
+import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
+import SelectAllIcon from '@mui/icons-material/SelectAll';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import ClearAllIcon from '@mui/icons-material/ClearAll';
+import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
+import type { DocNode } from '../../core/document';
+import { renderWithAiBlocks } from '../../core/export/aiPrompt';
+import { copyText } from '../../lib/clipboard';
+import { notify } from '../../lib/notify';
 import { AI_BLOCK_ROLES, roleInfo, type AiBlockRole } from '../../core/aiBlocks';
 import { ROLE_STYLE } from './roleStyle';
 
@@ -38,6 +49,43 @@ export function AiBlockView({ node, updateAttributes, editor, getPos }: ReactNod
     editor.chain().focus().setTextSelection(pos + 2).lift('aiBlock').run();
   };
 
+  /** このブロックの位置を使って操作する */
+  const run = (fn: (pos: number) => void) => {
+    const pos = getPos();
+    if (typeof pos === 'number') fn(pos);
+  };
+  const canMove = (direction: -1 | 1) => {
+    const pos = getPos();
+    if (typeof pos !== 'number') return false;
+    const $pos = editor.state.doc.resolve(pos);
+    return !!$pos.parent.maybeChild($pos.index() + direction);
+  };
+  const copyContent = async () => {
+    const text = renderWithAiBlocks((node.toJSON() as DocNode).content ?? []);
+    if (!text) {
+      notify('このブロックは空です');
+      return;
+    }
+    try {
+      await copyText(text);
+      notify(`「${info.label}」の中身をコピーしました（${text.length.toLocaleString()} 文字）`);
+    } catch {
+      notify('コピーできませんでした');
+    }
+  };
+  const actionItem = (icon: ReactNode, text: string, onClick: () => void, disabled = false) => (
+    <MenuItem
+      disabled={disabled}
+      onClick={() => {
+        setAnchor(null);
+        onClick();
+      }}
+    >
+      <ListItemIcon>{icon}</ListItemIcon>
+      <ListItemText primary={text} />
+    </MenuItem>
+  );
+
   return (
     <NodeViewWrapper
       data-ai-block={info.role}
@@ -61,6 +109,25 @@ export function AiBlockView({ node, updateAttributes, editor, getPos }: ReactNod
         }}
       >
         <Box contentEditable={false} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, userSelect: 'none', mb: 0.25 }}>
+          {/* ドラッグで並べ替えるためのつまみ（マウス操作の端末のみ。スマホはメニューの「上へ」「下へ」） */}
+          <Box
+            data-drag-handle
+            draggable
+            aria-label="ドラッグして並べ替え"
+            title="ドラッグして並べ替え"
+            sx={{
+              display: 'none',
+              '@media (pointer: fine)': { display: 'inline-flex' },
+              ml: -1.25,
+              mr: -0.5,
+              color: 'text.disabled',
+              cursor: 'grab',
+              '&:active': { cursor: 'grabbing' },
+              '&:hover': { color: 'var(--ai-color)' },
+            }}
+          >
+            <DragIndicatorIcon sx={{ fontSize: 18 }} />
+          </Box>
           <ButtonBase
             onClick={(e) => setAnchor(e.currentTarget)}
             aria-label={`${info.label}ブロック（種類を変更）`}
@@ -133,6 +200,13 @@ export function AiBlockView({ node, updateAttributes, editor, getPos }: ReactNod
           </MenuItem>
         ))}
         <Divider />
+        {actionItem(<ArrowUpwardIcon fontSize="small" />, '上へ移動', () => run((pos) => editor.chain().focus().moveAiBlockAt(pos, -1).run()), !canMove(-1))}
+        {actionItem(<ArrowDownwardIcon fontSize="small" />, '下へ移動', () => run((pos) => editor.chain().focus().moveAiBlockAt(pos, 1).run()), !canMove(1))}
+        <Divider />
+        {actionItem(<SelectAllIcon fontSize="small" />, '中身を選択', () => run((pos) => editor.chain().focus().selectAiBlockContentAt(pos).run()))}
+        {actionItem(<ContentCopyIcon fontSize="small" />, '中身をコピー', () => void copyContent())}
+        {actionItem(<ClearAllIcon fontSize="small" />, '中身をすべて削除', () => run((pos) => editor.chain().focus().clearAiBlockContentAt(pos).run()))}
+        <Divider />
         <MenuItem
           onClick={() => {
             setAnchor(null);
@@ -143,6 +217,18 @@ export function AiBlockView({ node, updateAttributes, editor, getPos }: ReactNod
             <LayersClearOutlinedIcon fontSize="small" />
           </ListItemIcon>
           <ListItemText primary="ブロックを解除" secondary="中の文章は残します" />
+        </MenuItem>
+        <MenuItem
+          onClick={() => {
+            setAnchor(null);
+            run((pos) => editor.chain().focus().deleteAiBlockAt(pos).run());
+          }}
+          sx={{ color: 'error.main' }}
+        >
+          <ListItemIcon sx={{ color: 'error.main' }}>
+            <DeleteOutlineOutlinedIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText primary="ブロックを削除" secondary="中の文章ごと削除します（戻すで取り消せます）" />
         </MenuItem>
       </Menu>
     </NodeViewWrapper>
