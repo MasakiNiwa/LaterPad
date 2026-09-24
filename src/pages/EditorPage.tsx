@@ -8,6 +8,8 @@ import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
 import InputBase from '@mui/material/InputBase';
 import Snackbar from '@mui/material/Snackbar';
+import ButtonBase from '@mui/material/ButtonBase';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
@@ -489,6 +491,28 @@ export function EditorPage() {
         <Typography variant="caption" sx={{ flexShrink: 0 }}>
           {(stats?.chars ?? 0).toLocaleString()} 字・{(stats?.lines ?? 0).toLocaleString()} 行
         </Typography>
+        {/* スマホでは操作バーにプレビューを置けないため、ここに控えめな入り口を置く */}
+        <ButtonBase
+          onClick={openPreview}
+          onMouseDown={(e) => e.preventDefault()}
+          aria-label="コピー内容をプレビュー"
+          sx={(t) => ({
+            display: { xs: 'inline-flex', sm: 'none' },
+            flexShrink: 0,
+            alignItems: 'center',
+            gap: 0.25,
+            ml: -0.5,
+            px: 1,
+            py: 0.5,
+            borderRadius: '8px',
+            fontSize: 12,
+            fontWeight: 600,
+            color: t.palette.primary.main,
+          })}
+        >
+          プレビュー
+          <ChevronRightIcon sx={{ fontSize: 16 }} />
+        </ButtonBase>
       </Box>
 
 

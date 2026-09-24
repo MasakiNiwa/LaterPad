@@ -23,7 +23,12 @@ export function createExtensions(placeholder: string): Extensions {
     TableKit.configure({
       table: { resizable: false },
     }),
-    Placeholder.configure({ placeholder }),
+    Placeholder.configure({
+      // 空の意味ブロックの中の段落にも印（is-empty）を付け、役割ごとの書き方の例を CSS で表示する
+      includeChildren: true,
+      showOnlyCurrent: false,
+      placeholder,
+    }),
     Search,
     AiBlock,
   ];

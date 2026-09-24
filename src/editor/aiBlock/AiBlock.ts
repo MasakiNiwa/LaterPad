@@ -1,5 +1,6 @@
 import { Node, mergeAttributes, ReactNodeViewRenderer, type Editor } from '@tiptap/react';
-import { AI_BLOCK_NODE, roleInfo, type AiBlockRole } from '../../core/aiBlocks';
+import { TextSelection } from '@tiptap/pm/state';
+import { AI_BLOCK_NODE, AI_TEMPLATES, roleInfo, templateContent, type AiBlockRole } from '../../core/aiBlocks';
 import { AiBlockView } from './AiBlockView';
 
 declare module '@tiptap/core' {
@@ -9,6 +10,10 @@ declare module '@tiptap/core' {
       setAiBlock: (role: AiBlockRole) => ReturnType;
       /** 意味ブロックの囲みを外す（中身は残す） */
       unsetAiBlock: () => ReturnType;
+      /** 選択中の段落を新しい意味ブロックで囲む（ブロック内なら入れ子にする） */
+      wrapAiBlock: (role: AiBlockRole) => ReturnType;
+      /** テンプレート（空のブロックの組み合わせ）を挿入する */
+      insertAiTemplate: (templateId: string) => ReturnType;
     };
   }
 }
@@ -86,6 +91,30 @@ export const AiBlock = Node.create({
         () =>
         ({ commands }) =>
           commands.lift(AI_BLOCK_NODE),
+      wrapAiBlock:
+        (role) =>
+        ({ commands }) =>
+          commands.wrapIn(AI_BLOCK_NODE, { role }),
+      insertAiTemplate:
+        (templateId) =>
+        ({ editor, chain }) => {
+          const template = AI_TEMPLATES.find((t) => t.id === templateId);
+          if (!template) return false;
+          const { $from } = editor.state.selection;
+          // 空の段落にいるならそこを置き換え、そうでなければ段落の後ろに挿入する
+          const emptyParagraph = $from.parent.type.name === 'paragraph' && $from.parent.content.size === 0;
+          const at = emptyParagraph ? { from: $from.before(), to: $from.after() } : $from.after();
+          return chain()
+            .insertContentAt(at, templateContent(template))
+            .command(({ tr }) => {
+              // 最初のブロックの中へカーソルを移す
+              const start = typeof at === 'number' ? at : at.from;
+              tr.setSelection(TextSelection.near(tr.doc.resolve(start + 2)));
+              return true;
+            })
+            .scrollIntoView()
+            .run();
+        },
     };
   },
 });

@@ -57,3 +57,20 @@ describe('semantic blocks in other formats', () => {
     expect(toPlainText(d)).toBe('【背景：前提】\n社内向け');
   });
 });
+
+describe('nested blocks and templates', () => {
+  it('renders nested blocks as nested tags', () => {
+    const d: DocNode = {
+      type: 'doc',
+      content: [block('context', [p('社内向けの資料'), block('instruction', [p('丁寧語で')])])],
+    };
+    expect(toAiPrompt(d)).toBe('<context>\n社内向けの資料\n\n<instructions>\n丁寧語で\n</instructions>\n</context>');
+  });
+
+  it('builds template skeletons that export to nothing until filled', async () => {
+    const { AI_TEMPLATES, templateContent } = await import('../aiBlocks');
+    const content = templateContent(AI_TEMPLATES[0]) as DocNode[];
+    expect(content.map((b) => b.attrs?.role)).toEqual(['instruction', 'constraint', 'output']);
+    expect(toAiPrompt({ type: 'doc', content })).toBe('');
+  });
+});

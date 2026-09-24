@@ -79,9 +79,36 @@ export function HelpPage() {
             <li><Typography variant="body2"><b>メモ</b> … 自分用のメモ（AI には送られません）</Typography></li>
           </Box>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            「テンプレートから始める」で、よく使うブロックの組み合わせをまとめて挿入できます。空のブロックには書き方の例が表示されます。
             ブロック上部のラベルから種類の変更・名前付け（例：資料「議事録」）・解除ができます。
-            ブロック内の最後の空行で Enter を押すとブロックの外に出ます。
+            ブロック内の最後の空行で Enter を押すとブロックの外に出ます。ブロックの中でさらに「AI書式」を選ぶと入れ子にできます。
           </Typography>
+        </Box>
+      </Section>
+
+      <Section title="AI書式の書き方のコツ">
+        <Box component="ul" sx={{ m: 0, py: 2, pr: 2, pl: 4.5, color: 'text.secondary', '& li': { mb: 1 } }}>
+          <li>
+            <Typography variant="body2">
+              ブロックは基本的に<b>横に並べる（入れ子にしない）</b>のがおすすめです。「背景 → 指示 → 条件 → 資料 → 出力形式」の順に並べると、AI が読みやすくなります。
+            </Typography>
+          </li>
+          <li>
+            <Typography variant="body2">
+              背景の中に指示を入れたくなったときは、その背景の<b>すぐ後ろに指示ブロックを置く</b>か、指示ブロックの中に「〇〇なので、△△してください」と理由ごと書くと伝わりやすくなります。
+              特定の資料にだけ関係する指示は、その資料の中に入れ子にするのも有効です。
+            </Typography>
+          </li>
+          <li>
+            <Typography variant="body2">
+              指示が複数あるときは、1 つの指示ブロックの中で<b>番号付きリスト</b>にすると、順番や抜け漏れが伝わりやすくなります。
+            </Typography>
+          </li>
+          <li>
+            <Typography variant="body2">
+              全部をブロックにする必要はありません。あいさつや補足はブロックの外に普通に書いてかまいません。
+            </Typography>
+          </li>
         </Box>
       </Section>
 
@@ -104,7 +131,7 @@ export function HelpPage() {
         </Box>
         <Divider />
         <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>
-          「プレビュー」（スマホではコピー後のお知らせの「内容を見る」）で、コピーされる内容を確認できます。書いた内容はこのブラウザに自動で一時保存され、次に起動したときは空の文書で始まります（起動直後の「復元」で前回の内容に戻せます）。
+          「プレビュー」（スマホでは下部の「プレビュー」やコピー後のお知らせの「内容を見る」）で、コピーされる内容を確認できます。書いた内容はこのブラウザに自動で一時保存され、次に起動したときは空の文書で始まります（起動直後の「復元」で前回の内容に戻せます）。
         </Typography>
       </Section>
 
