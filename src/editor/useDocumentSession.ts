@@ -4,7 +4,7 @@ import { isDocEmpty } from '../core/document';
 import { saveFile, type FsFileHandle, type OpenedFile } from '../core/file/fileAccess';
 import { createNewFile, titleFromFileName, type LaterPadFile, type Revision, type RevisionReason } from '../core/file/format';
 import { addRevision as addRevisionTo, removeRevision as removeRevisionFrom } from '../core/revisions';
-import { loadDraft, saveDraft } from '../core/storage/draft';
+import { loadDraft, loadPreviousDraft, saveDraft, stashDraftAsPrevious, type Draft } from '../core/storage/draft';
 
 const DRAFT_SAVE_DELAY = 400;
 
@@ -17,18 +17,34 @@ export interface SessionState {
   loadKey: number;
 }
 
-function initialState(): SessionState {
+function hasContent(draft: Draft): boolean {
+  return !isDocEmpty(draft.file.content) || !!draft.file.title.trim() || draft.file.revisions.length > 0;
+}
+
+/**
+ * 起動時の状態。
+ * 既定では空の文書で始め、前回の内容は「復元できる下書き」として退避しておく。
+ * 設定で「前回の内容を開く」が有効なら、そのまま続きから始める。
+ */
+function initialState(restorePrevious: boolean): { state: SessionState; previous: Draft | null } {
   const draft = loadDraft();
-  if (draft) return { ...draft, loadKey: 0 };
-  return { file: createNewFile(), fileName: null, dirty: false, loadKey: 0 };
+  if (draft && restorePrevious) return { state: { ...draft, loadKey: 0 }, previous: null };
+  if (draft && hasContent(draft)) stashDraftAsPrevious(draft);
+  const empty: Omit<SessionState, 'loadKey'> = { file: createNewFile(), fileName: null, dirty: false };
+  saveDraft(empty);
+  const previous = loadPreviousDraft();
+  return { state: { ...empty, loadKey: 0 }, previous: previous && hasContent(previous) ? previous : null };
 }
 
 /**
  * 編集中の 1 文書と保存ファイルの対応を管理する。
  * 本文の最新状態はエディタが持ち、getContent で取得する。
  */
-export function useDocumentSession(getContent: () => DocNode | null) {
-  const [state, setState] = useState<SessionState>(initialState);
+export function useDocumentSession(getContent: () => DocNode | null, restoreOnStartup: boolean) {
+  const [initial] = useState(() => initialState(restoreOnStartup));
+  const [state, setState] = useState<SessionState>(initial.state);
+  /** 起動時に退避した前回の内容（復元できるもの） */
+  const [previousDraft, setPreviousDraft] = useState<Draft | null>(initial.previous);
   const handleRef = useRef<FsFileHandle | null>(null);
   const timer = useRef<number | undefined>(undefined);
   const stateRef = useRef(state);
@@ -89,6 +105,13 @@ export function useDocumentSession(getContent: () => DocNode | null) {
   const newDocument = useCallback(() => {
     replace({ file: createNewFile(), fileName: null, dirty: false }, null);
   }, [replace]);
+
+  /** 前回の内容を復元する */
+  const restorePrevious = useCallback(() => {
+    if (!previousDraft) return;
+    replace(previousDraft, null);
+    setPreviousDraft(null);
+  }, [previousDraft, replace]);
 
   const openDocument = useCallback(
     (opened: OpenedFile) => {
@@ -164,7 +187,9 @@ export function useDocumentSession(getContent: () => DocNode | null) {
       needsDiscardConfirm,
       addRevision,
       removeRevision,
+      previousDraft,
+      restorePrevious,
     }),
-    [state, markChanged, setTitle, newDocument, openDocument, save, snapshot, needsDiscardConfirm, addRevision, removeRevision],
+    [state, markChanged, setTitle, newDocument, openDocument, save, snapshot, needsDiscardConfirm, addRevision, removeRevision, previousDraft, restorePrevious],
   );
 }

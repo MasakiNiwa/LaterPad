@@ -94,6 +94,24 @@ export function SettingsPage() {
         ))}
       </Section>
 
+      <Section title="起動時">
+        <Box
+          component="label"
+          sx={{ display: 'flex', alignItems: 'center', gap: 2, px: 2, py: 1.5, cursor: 'pointer' }}
+        >
+          <Box sx={{ flex: 1 }}>
+            <Typography sx={{ fontWeight: 500 }}>前回の内容を開く</Typography>
+            <Typography variant="body2" color="text.secondary">
+              オフの場合は空の文書で始まります。前回の内容は起動直後に表示される「復元」から戻せます。
+            </Typography>
+          </Box>
+          <Switch
+            checked={settings.restoreOnStartup}
+            onChange={(e) => updateSettings({ restoreOnStartup: e.target.checked })}
+          />
+        </Box>
+      </Section>
+
       <Section title="履歴">
         <Box
           component="label"

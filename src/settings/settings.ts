@@ -10,6 +10,8 @@ export interface Settings {
   fontSize: FontSize;
   /** AI用にコピーした時点をリビジョンとして自動記録する */
   revisionOnCopy: boolean;
+  /** 起動時に前回の内容を開く（オフなら空の文書で始める） */
+  restoreOnStartup: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -17,6 +19,7 @@ export const DEFAULT_SETTINGS: Settings = {
   copyFormat: RECOMMENDED,
   fontSize: 'medium',
   revisionOnCopy: true,
+  restoreOnStartup: false,
 };
 
 const STORAGE_KEY = 'laterpad.settings.v1';

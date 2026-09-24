@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { EditorContent, useEditor, useEditorState, type Editor } from '@tiptap/react';
 import AppBar from '@mui/material/AppBar';
@@ -8,16 +8,11 @@ import Divider from '@mui/material/Divider';
 import Fab from '@mui/material/Fab';
 import IconButton from '@mui/material/IconButton';
 import InputBase from '@mui/material/InputBase';
-import ListItemIcon from '@mui/material/ListItemIcon';
-import ListItemText from '@mui/material/ListItemText';
-import Menu from '@mui/material/Menu';
-import MenuItem from '@mui/material/MenuItem';
 import Snackbar from '@mui/material/Snackbar';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
-import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
 import FolderOpenOutlinedIcon from '@mui/icons-material/FolderOpenOutlined';
 import SaveOutlinedIcon from '@mui/icons-material/SaveOutlined';
 import SaveAsOutlinedIcon from '@mui/icons-material/SaveAsOutlined';
@@ -25,8 +20,6 @@ import NoteAddOutlinedIcon from '@mui/icons-material/NoteAddOutlined';
 import UndoIcon from '@mui/icons-material/Undo';
 import RedoIcon from '@mui/icons-material/Redo';
 import SearchIcon from '@mui/icons-material/Search';
-import FindReplaceIcon from '@mui/icons-material/FindReplace';
-import BookmarkAddOutlinedIcon from '@mui/icons-material/BookmarkAddOutlined';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import HelpOutlineOutlinedIcon from '@mui/icons-material/HelpOutlineOutlined';
 import HistoryIcon from '@mui/icons-material/History';
@@ -49,6 +42,7 @@ import { TableQuickBar } from '../editor/TableQuickBar';
 import { useCopyForAI } from '../editor/useCopyForAI';
 import { useDocumentSession } from '../editor/useDocumentSession';
 import { modKey } from '../lib/platform';
+import { isCoarsePointer, useVisualViewport } from '../lib/viewport';
 import { useSettings } from '../settings/SettingsContext';
 
 /** 上部バー各段の最大幅（本文の幅と揃える） */
@@ -60,14 +54,18 @@ export function EditorPage() {
   const navigate = useNavigate();
   const { settings } = useSettings();
   const editorRef = useRef<Editor | null>(null);
-  const session = useDocumentSession(() => (editorRef.current?.getJSON() as DocNode | undefined) ?? null);
+  const session = useDocumentSession(
+    () => (editorRef.current?.getJSON() as DocNode | undefined) ?? null,
+    settings.restoreOnStartup,
+  );
   const { state } = session;
 
   const editor = useEditor(
     {
       extensions: createExtensions('ここに文章を書く… 書式はツールバーから。書き終えたら「AI用にコピー」'),
       content: state.file.content,
-      autofocus: 'end',
+      // スマホでは起動・読み込み時にソフトウェアキーボードが勝手に開かないようにする
+      autofocus: isCoarsePointer() ? false : 'end',
       shouldRerenderOnTransaction: false,
       editorProps: {
         attributes: { 'aria-label': '本文', spellcheck: 'false' },
@@ -88,14 +86,36 @@ export function EditorPage() {
     selector: ({ editor: e }) => ({ canUndo: !!e?.can().undo(), canRedo: !!e?.can().redo() }),
   });
 
+  // ソフトウェアキーボード表示時も上部バー・ステータスバーを見える位置に保つ
+  const viewport = useVisualViewport();
+  const headerRef = useRef<HTMLDivElement>(null);
+  const [headerHeight, setHeaderHeight] = useState(0);
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setHeaderHeight(el.offsetHeight));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  // カーソル位置へのスクロールで、上部バーやステータスバーの裏に隠れないようにする
+  useEffect(() => {
+    editor?.setOptions({
+      editorProps: {
+        ...editor.options.editorProps,
+        scrollMargin: { top: headerHeight + 16, bottom: 56, left: 0, right: 0 },
+        scrollThreshold: { top: headerHeight + 16, bottom: 56, left: 0, right: 0 },
+      },
+    });
+  }, [editor, headerHeight]);
+
   const { render, copy } = useCopyForAI(editor, state.file.title);
   const [toast, setToast] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [preview, setPreview] = useState({ text: '', formatLabel: '' });
   const [linkOpen, setLinkOpen] = useState(false);
-  const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [pending, setPending] = useState<PendingAction | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [restoreDismissed, setRestoreDismissed] = useState(false);
   const [restoreTarget, setRestoreTarget] = useState<Revision | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Revision | null>(null);
 
@@ -121,8 +141,19 @@ export function EditorPage() {
   const closeSearch = useCallback(() => {
     setSearchOpen(false);
     setReplaceOpen(false);
-    editor?.commands.focus();
+    if (!isCoarsePointer()) editor?.commands.focus();
   }, [editor]);
+
+  /** 戻す・進む。スマホで入力中でなければキーボードを開かずに実行する */
+  const runHistory = useCallback(
+    (kind: 'undo' | 'redo') => {
+      if (!editor) return;
+      const chain = editor.chain();
+      if (!isCoarsePointer() || editor.isFocused) chain.focus();
+      chain[kind]().run();
+    },
+    [editor],
+  );
 
   const recordRevision = useCallback(() => {
     const rev = session.addRevision('manual');
@@ -151,7 +182,9 @@ export function EditorPage() {
       if (!editor) return;
       // 復元前の状態を残しておき、復元自体も取り消せるようにする
       session.addRevision('restore');
-      editor.chain().setContent(revision.content, { emitUpdate: true }).focus('start').run();
+      const chain = editor.chain().setContent(revision.content, { emitUpdate: true });
+      if (!isCoarsePointer()) chain.focus('start');
+      chain.run();
       setHistoryOpen(false);
       setToast(`${formatShort(revision.createdAt)} の版に戻しました`);
     },
@@ -282,17 +315,18 @@ export function EditorPage() {
   }, [handleCopy, handleSave, guarded, editor, openSearch]);
 
   const mod = modKey();
-  const closeMenuAnd = (fn: () => void) => () => {
-    setMenuAnchor(null);
-    fn();
-  };
   const saveStatus = !state.fileName ? 'まだ保存していません' : state.dirty ? '未保存の変更あり' : '保存済み';
 
   return (
     <Box sx={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}>
-      <AppBar position="sticky" sx={(t) => ({ borderBottom: `1px solid ${t.m3.outlineVariant}` })}>
-        {/* 1 段目: ロゴ・文書タイトル・設定・ヘルプ */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 1.5 }, px: { xs: 1.5, sm: 2 }, pt: 1.25, pb: 0.5, maxWidth: HEADER_WIDTH, width: '100%', mx: 'auto' }}>
+      <AppBar
+        ref={headerRef}
+        position="fixed"
+        style={{ transform: viewport.offsetTop ? `translateY(${viewport.offsetTop}px)` : undefined }}
+        sx={(t) => ({ borderBottom: `1px solid ${t.m3.outlineVariant}` })}
+      >
+        {/* 1 段目: ロゴ・文書タイトル・設定・ヘルプ（キーボード表示中は省いて本文の領域を確保） */}
+        <Box sx={{ display: viewport.keyboardOpen ? 'none' : 'flex', alignItems: 'center', gap: { xs: 1, sm: 1.5 }, px: { xs: 1.5, sm: 2 }, pt: 1.25, pb: 0.5, maxWidth: HEADER_WIDTH, width: '100%', mx: 'auto' }}>
           <Brand hideTextOnMobile />
           <InputBase
             value={state.file.title}
@@ -363,37 +397,25 @@ export function EditorPage() {
         {/* 2 段目: ファイル・編集の操作 */}
         <Box sx={{ maxWidth: HEADER_WIDTH, width: '100%', mx: 'auto' }}>
           <ActionBar>
+            <ActionButton icon={<NoteAddOutlinedIcon />} label="新規" tooltip="新しい文書" onClick={() => guarded({ kind: 'new' })} />
             <ActionButton icon={<FolderOpenOutlinedIcon />} label="開く" tooltip={`開く（${mod}+O）`} onClick={() => guarded({ kind: 'open' })} />
+            <ActionDivider />
             <ActionButton
               icon={<SaveOutlinedIcon />}
               label="保存"
               accent={state.dirty}
-              tooltip={state.fileName ? `「${state.fileName}」に保存（${mod}+S）` : `保存（${mod}+S）`}
+              tooltip={state.fileName ? `「${state.fileName}」に上書き保存（${mod}+S）` : `保存（${mod}+S）`}
               onClick={() => void handleSave()}
             />
+            <ActionButton icon={<SaveAsOutlinedIcon />} label="別名保存" tooltip="名前を付けて保存" onClick={() => void handleSave(true)} />
             <ActionDivider />
-            <ActionButton icon={<UndoIcon />} label="戻す" tooltip={`元に戻す（${mod}+Z）`} disabled={!history?.canUndo} onClick={() => editor?.chain().focus().undo().run()} />
-            <ActionButton icon={<RedoIcon />} label="進む" tooltip={`やり直す（${mod}+Shift+Z）`} disabled={!history?.canRedo} onClick={() => editor?.chain().focus().redo().run()} />
+            <ActionButton icon={<UndoIcon />} label="戻す" tooltip={`元に戻す（${mod}+Z）`} keepFocus disabled={!history?.canUndo} onClick={() => runHistory('undo')} />
+            <ActionButton icon={<RedoIcon />} label="進む" tooltip={`やり直す（${mod}+Shift+Z）`} keepFocus disabled={!history?.canRedo} onClick={() => runHistory('redo')} />
             <ActionDivider />
             <ActionButton icon={<SearchIcon />} label="検索" tooltip={`検索・置換（${mod}+F）`} active={searchOpen} onClick={() => (searchOpen ? closeSearch() : openSearch(false))} />
-            <ActionButton icon={<HistoryIcon />} label="履歴" tooltip="履歴（過去の版）" onClick={() => setHistoryOpen(true)} />
+            <ActionButton icon={<HistoryIcon />} label="履歴" tooltip="履歴（過去の版・今の状態を記録）" onClick={() => setHistoryOpen(true)} />
             <ActionButton icon={<VisibilityOutlinedIcon />} label="プレビュー" tooltip="コピー内容をプレビュー" onClick={openPreview} />
-            <ActionButton icon={<NoteAddOutlinedIcon />} label="新規" tooltip="新しい文書" hideOnMobile onClick={() => guarded({ kind: 'new' })} />
-            <ActionButton icon={<MoreHorizIcon />} label="その他" onClick={(e) => setMenuAnchor(e.currentTarget)} />
           </ActionBar>
-          <Menu
-            anchorEl={menuAnchor}
-            open={!!menuAnchor}
-            onClose={() => setMenuAnchor(null)}
-            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-            transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-            slotProps={{ paper: { sx: { minWidth: 240 } } }}
-          >
-            <MenuEntry icon={<NoteAddOutlinedIcon fontSize="small" />} label="新規作成" onClick={closeMenuAnd(() => guarded({ kind: 'new' }))} />
-            <MenuEntry icon={<SaveAsOutlinedIcon fontSize="small" />} label="名前を付けて保存…" onClick={closeMenuAnd(() => void handleSave(true))} />
-            <MenuEntry icon={<FindReplaceIcon fontSize="small" />} label="置換" shortcut={`${mod}+H`} onClick={closeMenuAnd(() => openSearch(true))} />
-            <MenuEntry icon={<BookmarkAddOutlinedIcon fontSize="small" />} label="今の状態を履歴に記録" onClick={closeMenuAnd(recordRevision)} />
-          </Menu>
         </Box>
 
         {editor && (
@@ -419,6 +441,9 @@ export function EditorPage() {
         )}
       </AppBar>
 
+      {/* 固定表示の上部バーの分だけ本文を下げる */}
+      <Box aria-hidden sx={{ height: headerHeight, flexShrink: 0 }} />
+
       <Box
         component="main"
         sx={{ flex: 1, width: '100%', maxWidth: 900, mx: 'auto', px: { xs: 2, sm: 4 }, pt: { xs: 2, sm: 3 }, pb: 16 }}
@@ -434,6 +459,7 @@ export function EditorPage() {
 
       <Box
         component="footer"
+        style={{ transform: viewport.bottomInset ? `translateY(-${viewport.bottomInset}px)` : undefined }}
         sx={(t) => ({
           position: 'fixed',
           left: 0,
@@ -444,8 +470,9 @@ export function EditorPage() {
           alignItems: 'center',
           gap: 2,
           px: 2,
-          height: 'calc(32px + env(safe-area-inset-bottom))',
-          pb: 'env(safe-area-inset-bottom)',
+          minHeight: 32,
+          // キーボード表示中は画面下端ではないので、ホームバー分の余白は不要
+          pb: viewport.keyboardOpen ? 0 : 'env(safe-area-inset-bottom)',
           bgcolor: t.m3.surfaceContainer,
           color: t.m3.onSurfaceVariant,
           borderTop: `1px solid ${t.m3.outlineVariant}`,
@@ -459,6 +486,20 @@ export function EditorPage() {
         <Typography variant="caption" sx={{ flexShrink: 0 }}>
           {(stats?.chars ?? 0).toLocaleString()} 字・{(stats?.lines ?? 0).toLocaleString()} 行
         </Typography>
+        {viewport.keyboardOpen && (
+          // キーボード表示中は大きなコピーボタンの代わりにここから コピーできる
+          <Button
+            size="small"
+            variant="contained"
+            disableElevation
+            startIcon={<ContentCopyIcon />}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={handleCopy}
+            sx={{ flexShrink: 0, my: 0.5, py: 0.25, minHeight: 0 }}
+          >
+            AI用にコピー
+          </Button>
+        )}
       </Box>
 
       <Fab
@@ -467,7 +508,7 @@ export function EditorPage() {
         aria-label="AI用にコピー"
         onClick={handleCopy}
         sx={{
-          display: { xs: 'inline-flex', sm: 'none' },
+          display: viewport.keyboardOpen ? 'none' : { xs: 'inline-flex', sm: 'none' },
           position: 'fixed',
           right: 16,
           bottom: 'calc(48px + env(safe-area-inset-bottom))',
@@ -541,6 +582,29 @@ export function EditorPage() {
         onClose={() => setToast(null)}
         message={toast}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        style={{ transform: viewport.bottomInset ? `translateY(-${viewport.bottomInset}px)` : undefined }}
+        sx={{ bottom: { xs: 'calc(112px + env(safe-area-inset-bottom))', sm: 48 } }}
+      />
+      <Snackbar
+        open={!!session.previousDraft && !restoreDismissed}
+        autoHideDuration={10000}
+        onClose={(_, reason) => reason !== 'clickaway' && setRestoreDismissed(true)}
+        message="前回の内容を復元できます"
+        action={
+          <Button
+            color="inherit"
+            size="small"
+            onClick={() => {
+              setRestoreDismissed(true);
+              session.restorePrevious();
+              setToast('前回の内容を復元しました');
+            }}
+            sx={{ fontWeight: 700, color: 'primary.light' }}
+          >
+            復元
+          </Button>
+        }
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
         sx={{ bottom: { xs: 'calc(112px + env(safe-area-inset-bottom))', sm: 48 } }}
       />
     </Box>
@@ -563,25 +627,4 @@ function countStats(editor: Editor): { chars: number; lines: number } {
 
 function formatShort(iso: string): string {
   return new Date(iso).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-}
-
-interface MenuEntryProps {
-  icon: ReactNode;
-  label: string;
-  shortcut?: string;
-  onClick: () => void;
-}
-
-function MenuEntry({ icon, label, shortcut, onClick }: MenuEntryProps) {
-  return (
-    <MenuItem onClick={onClick}>
-      <ListItemIcon>{icon}</ListItemIcon>
-      <ListItemText>{label}</ListItemText>
-      {shortcut && (
-        <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>
-          {shortcut}
-        </Typography>
-      )}
-    </MenuItem>
-  );
 }

@@ -82,7 +82,7 @@ export function HelpPage() {
         </Box>
         <Divider />
         <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>
-          目のアイコンで、コピーされる内容を事前に確認できます。書いた内容はこのブラウザに自動で一時保存されます。
+          目のアイコンで、コピーされる内容を事前に確認できます。書いた内容はこのブラウザに自動で一時保存され、次に起動したときは空の文書で始まります（起動直後の「復元」で前回の内容に戻せます）。
         </Typography>
       </Section>
 
@@ -95,7 +95,7 @@ export function HelpPage() {
 
       <Section title="文書の保存">
         <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>
-          1 つの文書を 1 つのファイル（.laterpad）として保存します。上部の「開く」「保存」ボタン（「その他」に「名前を付けて保存」）を使うか、
+          1 つの文書を 1 つのファイル（.laterpad）として保存します。上部の「新規」「開く」「保存」「別名保存」ボタンを使うか、
           ファイルを画面にドラッグ＆ドロップして開けます。PC の Chrome / Edge では同じファイルへ上書き保存でき、
           それ以外のブラウザではダウンロードとして保存されます。上部のタイトル欄の文字がファイル名に使われます。
         </Typography>
