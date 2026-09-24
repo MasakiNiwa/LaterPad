@@ -14,6 +14,7 @@ export function HelpPage() {
   const mod = modKey();
   const shortcuts: [string, string][] = [
     ['AI用にコピー', `${mod} + Shift + Enter`],
+    ['保存 / 開く', `${mod} + S / ${mod} + O`],
     ['太字 / 斜体', `${mod} + B / ${mod} + I`],
     ['取り消し線', `${mod} + Shift + S`],
     ['見出し 1〜3', `${mod} + Alt + 1〜3`],
@@ -74,6 +75,14 @@ export function HelpPage() {
         <Divider />
         <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>
           目のアイコンで、コピーされる内容を事前に確認できます。書いた内容はこのブラウザに自動で一時保存されます。
+        </Typography>
+      </Section>
+
+      <Section title="文書の保存">
+        <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>
+          1 つの文書を 1 つのファイル（.laterpad）として保存します。メニューの「保存」「開く…」を使うか、
+          ファイルを画面にドラッグ＆ドロップして開けます。PC の Chrome / Edge では同じファイルへ上書き保存でき、
+          それ以外のブラウザではダウンロードとして保存されます。タイトルはファイル名に使われます。
         </Typography>
       </Section>
 

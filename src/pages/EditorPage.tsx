@@ -1,12 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { EditorContent, useEditor, useEditorState } from '@tiptap/react';
+import { EditorContent, useEditor, useEditorState, type Editor } from '@tiptap/react';
 import AppBar from '@mui/material/AppBar';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
 import Fab from '@mui/material/Fab';
 import IconButton from '@mui/material/IconButton';
+import InputBase from '@mui/material/InputBase';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import Menu from '@mui/material/Menu';
@@ -19,56 +20,50 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
-import HelpOutlinedIcon from '@mui/icons-material/HelpOutlineOutlined';
+import HelpOutlineOutlinedIcon from '@mui/icons-material/HelpOutlineOutlined';
+import NoteAddOutlinedIcon from '@mui/icons-material/NoteAddOutlined';
+import FolderOpenOutlinedIcon from '@mui/icons-material/FolderOpenOutlined';
+import SaveOutlinedIcon from '@mui/icons-material/SaveOutlined';
+import SaveAsOutlinedIcon from '@mui/icons-material/SaveAsOutlined';
 import { Brand } from '../components/Brand';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { PreviewDialog } from '../components/PreviewDialog';
-import { createEmptyDoc, plainTextOf, type DocNode } from '../core/document';
-import { loadDraft, saveDraft } from '../core/storage/draft';
+import { plainTextOf, type DocNode } from '../core/document';
+import { openFileWithPicker, readFile, type OpenedFile } from '../core/file/fileAccess';
+import { FileFormatError } from '../core/file/format';
 import { createExtensions } from '../editor/extensions';
 import { editorContentSx } from '../editor/editorStyles';
 import { LinkDialog } from '../editor/LinkDialog';
 import { Toolbar } from '../editor/Toolbar';
 import { useCopyForAI } from '../editor/useCopyForAI';
+import { useDocumentSession } from '../editor/useDocumentSession';
 import { modKey } from '../lib/platform';
 import { useSettings } from '../settings/SettingsContext';
 
-const DRAFT_SAVE_DELAY = 400;
+type PendingAction = { kind: 'new' } | { kind: 'open'; opened?: OpenedFile };
 
 export function EditorPage() {
   const navigate = useNavigate();
   const { settings } = useSettings();
-  const saveTimer = useRef<number | undefined>(undefined);
+  const editorRef = useRef<Editor | null>(null);
+  const session = useDocumentSession(() => (editorRef.current?.getJSON() as DocNode | undefined) ?? null);
+  const { state } = session;
 
-  const initialContent = useMemo(() => loadDraft()?.content ?? createEmptyDoc(), []);
-
-  const editor = useEditor({
-    extensions: createExtensions('ここに文章を書く… 書式はツールバーから。書き終えたら「AI用にコピー」'),
-    content: initialContent,
-    autofocus: 'end',
-    shouldRerenderOnTransaction: false,
-    editorProps: {
-      attributes: { 'aria-label': '本文', spellcheck: 'false' },
+  const editor = useEditor(
+    {
+      extensions: createExtensions('ここに文章を書く… 書式はツールバーから。書き終えたら「AI用にコピー」'),
+      content: state.file.content,
+      autofocus: 'end',
+      shouldRerenderOnTransaction: false,
+      editorProps: {
+        attributes: { 'aria-label': '本文', spellcheck: 'false' },
+      },
+      onUpdate: () => session.markChanged(),
     },
-    onUpdate: ({ editor: e }) => {
-      window.clearTimeout(saveTimer.current);
-      saveTimer.current = window.setTimeout(() => saveDraft(e.getJSON() as DocNode), DRAFT_SAVE_DELAY);
-    },
-  });
-
-  // ページ離脱時に保留中の下書きを確実に保存する
-  useEffect(() => {
-    const flush = () => {
-      if (saveTimer.current !== undefined && editor) {
-        window.clearTimeout(saveTimer.current);
-        saveDraft(editor.getJSON() as DocNode);
-      }
-    };
-    window.addEventListener('pagehide', flush);
-    return () => {
-      window.removeEventListener('pagehide', flush);
-      flush();
-    };
-  }, [editor]);
+    // 別の文書を読み込んだらエディタを作り直す（Undo 履歴もリセットされる）
+    [state.loadKey],
+  );
+  editorRef.current = editor;
 
   const charCount = useEditorState({
     editor,
@@ -81,6 +76,7 @@ export function EditorPage() {
   const [preview, setPreview] = useState({ text: '', formatLabel: '' });
   const [linkOpen, setLinkOpen] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
+  const [pending, setPending] = useState<PendingAction | null>(null);
 
   const handleCopy = useCallback(async () => {
     const result = await copy();
@@ -96,42 +92,147 @@ export function EditorPage() {
     setPreviewOpen(true);
   }, [render]);
 
+  // ------------------------------------------------------------ file operations
+
+  const handleSave = useCallback(
+    async (saveAs = false) => {
+      try {
+        const result = await session.save(saveAs);
+        if (!result) return;
+        setToast(
+          result.downloaded
+            ? `「${result.fileName}」をダウンロードしました`
+            : `「${result.fileName}」に保存しました`,
+        );
+      } catch (e) {
+        console.error(e);
+        setToast('保存できませんでした');
+      }
+    },
+    [session],
+  );
+
+  const runPending = useCallback(
+    async (action: PendingAction) => {
+      if (action.kind === 'new') {
+        session.newDocument();
+        setToast('新しい文書を作成しました');
+        return;
+      }
+      try {
+        const opened = action.opened ?? (await openFileWithPicker());
+        if (!opened) return;
+        session.openDocument(opened);
+        setToast(`「${opened.fileName}」を開きました`);
+      } catch (e) {
+        console.error(e);
+        setToast(e instanceof FileFormatError ? e.message : 'ファイルを開けませんでした');
+      }
+    },
+    [session],
+  );
+
+  /** 未保存の変更がある場合は確認してから実行する */
+  const guarded = useCallback(
+    (action: PendingAction) => {
+      if (session.needsDiscardConfirm()) setPending(action);
+      else void runPending(action);
+    },
+    [session, runPending],
+  );
+
+  // ファイルのドラッグ＆ドロップで開く
+  useEffect(() => {
+    const hasFiles = (e: DragEvent) => Array.from(e.dataTransfer?.types ?? []).includes('Files');
+    const onDragOver = (e: DragEvent) => {
+      if (hasFiles(e)) e.preventDefault();
+    };
+    const onDrop = async (e: DragEvent) => {
+      const f = e.dataTransfer?.files?.[0];
+      if (!f || !/\.(laterpad|json)$/i.test(f.name)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      try {
+        guarded({ kind: 'open', opened: await readFile(f) });
+      } catch (err) {
+        setToast(err instanceof FileFormatError ? err.message : 'ファイルを開けませんでした');
+      }
+    };
+    window.addEventListener('dragover', onDragOver);
+    window.addEventListener('drop', onDrop, true);
+    return () => {
+      window.removeEventListener('dragover', onDragOver);
+      window.removeEventListener('drop', onDrop, true);
+    };
+  }, [guarded]);
+
   // アプリ全体のショートカット
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       const mod = e.metaKey || e.ctrlKey;
-      if (mod && e.shiftKey && e.key === 'Enter') {
+      if (!mod) return;
+      const key = e.key.toLowerCase();
+      if (e.shiftKey && e.key === 'Enter') {
         e.preventDefault();
         void handleCopy();
-      } else if (mod && !e.shiftKey && e.key.toLowerCase() === 'k' && editor?.isFocused) {
+      } else if (!e.shiftKey && !e.altKey && key === 's') {
+        e.preventDefault();
+        void handleSave();
+      } else if (!e.shiftKey && !e.altKey && key === 'o') {
+        e.preventDefault();
+        guarded({ kind: 'open' });
+      } else if (!e.shiftKey && key === 'k' && editor?.isFocused) {
         e.preventDefault();
         setLinkOpen(true);
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [handleCopy, editor]);
+  }, [handleCopy, handleSave, guarded, editor]);
 
-  const copyShortcut = `${modKey()}+Shift+Enter`;
+  const mod = modKey();
+  const closeMenuAnd = (fn: () => void) => () => {
+    setMenuAnchor(null);
+    fn();
+  };
+  const saveStatus = state.dirty ? '未保存' : state.fileName ? '保存済み' : '';
 
   return (
     <Box sx={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}>
       <AppBar position="sticky" sx={(t) => ({ borderBottom: `1px solid ${t.m3.outlineVariant}` })}>
         <MuiToolbar sx={{ gap: 1 }}>
-          <Brand />
-          <Box sx={{ flex: 1 }} />
+          <Brand hideTextOnMobile />
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            {state.fileName && (
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                noWrap
+                title={state.fileName}
+                sx={{ px: 1, display: { xs: 'none', md: 'block' } }}
+              >
+                {state.fileName}
+                {state.dirty && ' ●'}
+              </Typography>
+            )}
+          </Box>
+          <Tooltip title={`保存（${mod}+S）`}>
+            <IconButton aria-label="保存" onClick={() => void handleSave()}>
+              <SaveOutlinedIcon />
+            </IconButton>
+          </Tooltip>
           <Tooltip title="コピー内容をプレビュー">
             <IconButton aria-label="コピー内容をプレビュー" onClick={openPreview}>
               <VisibilityOutlinedIcon />
             </IconButton>
           </Tooltip>
-          <Tooltip title={`AI用にコピー（${copyShortcut}）`}>
+          <Tooltip title={`AI用にコピー（${mod}+Shift+Enter）`}>
             <Button
               variant="contained"
               disableElevation
               startIcon={<ContentCopyIcon />}
               onClick={handleCopy}
-              sx={{ display: { xs: 'none', sm: 'inline-flex' } }}
+              sx={{ display: { xs: 'none', sm: 'inline-flex' }, flexShrink: 0 }}
             >
               AI用にコピー
             </Button>
@@ -145,19 +246,15 @@ export function EditorPage() {
             onClose={() => setMenuAnchor(null)}
             anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
             transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+            slotProps={{ paper: { sx: { minWidth: 220 } } }}
           >
-            <MenuItem onClick={() => navigate('/settings')}>
-              <ListItemIcon>
-                <SettingsOutlinedIcon fontSize="small" />
-              </ListItemIcon>
-              <ListItemText>設定</ListItemText>
-            </MenuItem>
-            <MenuItem onClick={() => navigate('/help')}>
-              <ListItemIcon>
-                <HelpOutlinedIcon fontSize="small" />
-              </ListItemIcon>
-              <ListItemText>ヘルプ</ListItemText>
-            </MenuItem>
+            <MenuEntry icon={<NoteAddOutlinedIcon fontSize="small" />} label="新規作成" onClick={closeMenuAnd(() => guarded({ kind: 'new' }))} />
+            <MenuEntry icon={<FolderOpenOutlinedIcon fontSize="small" />} label="開く…" shortcut={`${mod}+O`} onClick={closeMenuAnd(() => guarded({ kind: 'open' }))} />
+            <MenuEntry icon={<SaveOutlinedIcon fontSize="small" />} label="保存" shortcut={`${mod}+S`} onClick={closeMenuAnd(() => void handleSave())} />
+            <MenuEntry icon={<SaveAsOutlinedIcon fontSize="small" />} label="名前を付けて保存…" onClick={closeMenuAnd(() => void handleSave(true))} />
+            <Divider />
+            <MenuEntry icon={<SettingsOutlinedIcon fontSize="small" />} label="設定" onClick={closeMenuAnd(() => navigate('/settings'))} />
+            <MenuEntry icon={<HelpOutlineOutlinedIcon fontSize="small" />} label="ヘルプ" onClick={closeMenuAnd(() => navigate('/help'))} />
           </Menu>
         </MuiToolbar>
         {editor && (
@@ -172,12 +269,32 @@ export function EditorPage() {
 
       <Box
         component="main"
-        sx={{ flex: 1, width: '100%', maxWidth: 900, mx: 'auto', px: { xs: 2, sm: 4 }, pt: { xs: 2, sm: 4 }, pb: 14 }}
+        sx={{ flex: 1, width: '100%', maxWidth: 900, mx: 'auto', px: { xs: 2, sm: 4 }, pt: { xs: 2, sm: 3 }, pb: 14 }}
         onClick={(e) => {
           // 余白クリックでも入力を始められるようにする
           if (e.target === e.currentTarget) editor?.commands.focus('end');
         }}
       >
+        <InputBase
+          value={state.file.title}
+          onChange={(e) => session.setTitle(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+              e.preventDefault();
+              editor?.commands.focus('start');
+            }
+          }}
+          placeholder="無題の文書"
+          fullWidth
+          inputProps={{ 'aria-label': '文書タイトル（ファイル名に使われます）', maxLength: 200 }}
+          sx={(t) => ({
+            mb: 1.5,
+            fontSize: { xs: 20, sm: 22 },
+            fontWeight: 600,
+            color: t.m3.onSurfaceVariant,
+            '& input::placeholder': { color: t.m3.outline, opacity: 1 },
+          })}
+        />
         <Box sx={editorContentSx(settings.fontSize)}>
           <EditorContent editor={editor} />
         </Box>
@@ -197,7 +314,9 @@ export function EditorPage() {
           pointerEvents: 'none',
         })}
       >
-        <Typography variant="caption">{(charCount ?? 0).toLocaleString()} 文字</Typography>
+        <Typography variant="caption">
+          {(charCount ?? 0).toLocaleString()} 文字{saveStatus && ` · ${saveStatus}`}
+        </Typography>
       </Box>
 
       <Fab
@@ -228,6 +347,19 @@ export function EditorPage() {
           void handleCopy();
         }}
       />
+      <ConfirmDialog
+        open={!!pending}
+        title="保存されていない変更があります"
+        message={
+          pending?.kind === 'new'
+            ? '現在の文書をファイルに保存せずに、新しい文書を作成しますか？'
+            : '現在の文書をファイルに保存せずに、別の文書を開きますか？'
+        }
+        confirmLabel="保存せずに続ける"
+        danger
+        onConfirm={() => pending && void runPending(pending)}
+        onClose={() => setPending(null)}
+      />
       <Snackbar
         open={!!toast}
         autoHideDuration={2500}
@@ -237,5 +369,26 @@ export function EditorPage() {
         sx={{ bottom: { xs: 'calc(88px + env(safe-area-inset-bottom))', sm: 24 } }}
       />
     </Box>
+  );
+}
+
+interface MenuEntryProps {
+  icon: ReactNode;
+  label: string;
+  shortcut?: string;
+  onClick: () => void;
+}
+
+function MenuEntry({ icon, label, shortcut, onClick }: MenuEntryProps) {
+  return (
+    <MenuItem onClick={onClick}>
+      <ListItemIcon>{icon}</ListItemIcon>
+      <ListItemText>{label}</ListItemText>
+      {shortcut && (
+        <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>
+          {shortcut}
+        </Typography>
+      )}
+    </MenuItem>
   );
 }
