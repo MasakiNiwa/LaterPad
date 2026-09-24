@@ -1,7 +1,7 @@
 {
   "name": "laterpad",
   "private": true,
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "LaterPad - 書式をAIに渡すための専用エディタ",
   "type": "module",
   "scripts": {

@@ -171,8 +171,8 @@ function RevisionDetail({
   const prev = previousRevision(file, revision.id);
 
   const body = useMemo(() => {
-    const render = (doc: DocNode) => exportDoc(doc, exporterId).text;
-    const text = render(revision.content);
+    const render = (doc: DocNode, title?: string) => exportDoc(doc, exporterId, { title }).text;
+    const text = render(revision.content, revision.title);
     if (mode === 'content') return <TextView text={text} />;
     if (mode === 'previous') {
       if (!prev) {
@@ -182,10 +182,10 @@ function RevisionDetail({
           </Typography>
         );
       }
-      return <DiffView diff={diffText(render(prev.content), text)} />;
+      return <DiffView diff={diffText(render(prev.content, prev.title), text)} />;
     }
-    return <DiffView diff={diffText(text, render(getCurrentContent()))} />;
-  }, [mode, revision, prev, exporterId, getCurrentContent]);
+    return <DiffView diff={diffText(text, render(getCurrentContent(), file.title))} />;
+  }, [mode, revision, prev, exporterId, getCurrentContent, file.title]);
 
   const modeHelp: Record<ViewMode, string> = {
     content: 'この時点の内容（AI用コピーの形式）',

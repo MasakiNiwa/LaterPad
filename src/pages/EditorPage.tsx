@@ -74,7 +74,7 @@ export function EditorPage() {
     selector: ({ editor: e }) => (e ? plainTextOf(e.getJSON() as DocNode).replace(/\n/g, '').length : 0),
   });
 
-  const { render, copy } = useCopyForAI(editor);
+  const { render, copy } = useCopyForAI(editor, state.file.title);
   const [toast, setToast] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [preview, setPreview] = useState({ text: '', formatLabel: '' });
@@ -115,7 +115,7 @@ export function EditorPage() {
 
   const copyRevision = useCallback(
     async (revision: Revision) => {
-      const { exporter, text } = exportDoc(revision.content, settings.copyFormat);
+      const { exporter, text } = exportDoc(revision.content, settings.copyFormat, { title: revision.title });
       try {
         await copyText(text);
         setToast(`この版をコピーしました（${exporter.label}・${text.length.toLocaleString()} 文字）`);
