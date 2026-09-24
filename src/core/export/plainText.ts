@@ -1,4 +1,5 @@
 import type { DocNode } from '../document';
+import { tableToGrid } from './tableGrid';
 import type { Exporter } from './types';
 
 /**
@@ -31,8 +32,8 @@ function stripBlock(node: DocNode): string {
         .join('\n');
     }
     case 'table':
-      return (node.content ?? [])
-        .map((row) => (row.content ?? []).map((cell) => stripBlocks(cell.content ?? []).replace(/\n/g, ' ')).join('\t'))
+      return tableToGrid(node, (cell) => stripBlocks(cell.content ?? []).replace(/\n/g, ' '))
+        .map((row) => row.join('\t'))
         .join('\n');
     case 'horizontalRule':
       return '';

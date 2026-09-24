@@ -7,7 +7,12 @@ import { createEmptyDoc, type DocNode } from '../document';
 export const FILE_FORMAT = 'laterpad';
 export const FILE_FORMAT_VERSION = 1;
 export const FILE_EXTENSION = '.laterpad';
-export const FILE_MIME = 'application/json';
+/**
+ * 保存時の MIME タイプ。
+ * application/json にするとスマホ等のブラウザが拡張子 .json を付け足してしまう
+ * （例: 文書.laterpad.json）ため、拡張子と対応しない独自タイプを使う。
+ */
+export const FILE_MIME = 'application/x-laterpad';
 
 export type RevisionReason = 'copy' | 'save' | 'manual' | 'restore';
 
@@ -108,7 +113,8 @@ export function fileNameFor(title: string): string {
 
 /** ファイル名からタイトル候補を作る */
 export function titleFromFileName(name: string): string {
-  return name.replace(/\.laterpad$/i, '').replace(/\.json$/i, '');
+  // 以前のバージョンで付いてしまった「.laterpad.json」にも対応する
+  return name.replace(/(\.laterpad)?(\.json)?$/i, '');
 }
 
 function isObject(v: unknown): v is Record<string, unknown> {

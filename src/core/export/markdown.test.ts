@@ -75,6 +75,21 @@ describe('toMarkdown', () => {
     expect(md).toBe('| 名前 | 値 |\n| --- | --- |\n| a\\|b | 1 |');
   });
 
+  it('expands merged cells so columns stay aligned', () => {
+    const cell = (text: string, attrs?: Record<string, unknown>): DocNode => ({ type: 'tableCell', attrs, content: [p(t(text))] });
+    const md = toMarkdown(
+      doc({
+        type: 'table',
+        content: [
+          { type: 'tableRow', content: [cell('A', { colspan: 2 }), cell('C')] },
+          { type: 'tableRow', content: [cell('x', { rowspan: 2 }), cell('y'), cell('z')] },
+          { type: 'tableRow', content: [cell('y2'), cell('z2')] },
+        ],
+      }),
+    );
+    expect(md).toBe('| A |  | C |\n| --- | --- | --- |\n| x | y | z |\n|  | y2 | z2 |');
+  });
+
   it('returns empty string for empty document', () => {
     expect(toMarkdown(doc(p()))).toBe('');
   });
