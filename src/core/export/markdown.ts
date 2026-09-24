@@ -1,4 +1,5 @@
 import type { DocMark, DocNode } from '../document';
+import { tableToGrid } from './tableGrid';
 import type { Exporter } from './types';
 
 /**
@@ -107,15 +108,11 @@ function serializeCodeBlock(node: DocNode): string {
 }
 
 function serializeTable(node: DocNode): string {
-  const rows = (node.content ?? []).map((row) =>
-    (row.content ?? []).map((cell) => serializeCell(cell)),
-  );
-  if (rows.length === 0) return '';
-  const width = Math.max(...rows.map((r) => r.length));
-  const normalize = (r: string[]) => [...r, ...Array(width - r.length).fill('')];
-  const line = (r: string[]) => `| ${normalize(r).join(' | ')} |`;
+  const rows = tableToGrid(node, serializeCell);
+  if (rows.length === 0 || rows[0].length === 0) return '';
+  const line = (r: string[]) => `| ${r.join(' | ')} |`;
   const [header, ...body] = rows;
-  return [line(header), line(Array(width).fill('---')), ...body.map(line)].join('\n');
+  return [line(header), line(header.map(() => '---')), ...body.map(line)].join('\n');
 }
 
 function serializeCell(cell: DocNode): string {

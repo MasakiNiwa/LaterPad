@@ -15,10 +15,13 @@ export function HelpPage() {
   const shortcuts: [string, string][] = [
     ['AI用にコピー', `${mod} + Shift + Enter`],
     ['保存 / 開く', `${mod} + S / ${mod} + O`],
+    ['本文に戻す', `${mod} + Alt + 0`],
     ['太字 / 斜体', `${mod} + B / ${mod} + I`],
     ['取り消し線', `${mod} + Shift + S`],
     ['見出し 1〜3', `${mod} + Alt + 1〜3`],
     ['箇条書き / 番号付きリスト', `${mod} + Shift + 8 / 7`],
+    ['リストの字下げ / 戻す', 'Tab / Shift + Tab'],
+    ['表の次のセル / 前のセル', 'Tab / Shift + Tab'],
     ['引用', `${mod} + Shift + B`],
     ['インラインコード / コードブロック', `${mod} + E / ${mod} + Alt + C`],
     ['リンク', `${mod} + K`],
@@ -61,7 +64,10 @@ export function HelpPage() {
       <Section title="使い方">
         <Box component="ol" sx={{ m: 0, py: 2, pr: 2, pl: 5, '& li': { mb: 1 } }}>
           <li>
-            <Typography>文章を書きます。書式はツールバーから設定できます。</Typography>
+            <Typography>
+              文章を書きます。書式はツールバーの「段落」「文字」「リスト」「挿入」から選べます。
+              表の中にカーソルがあるときは「表」が現れ、行・列の追加や削除、セルの結合ができます。
+            </Typography>
           </li>
           <li>
             <Typography>
@@ -80,7 +86,7 @@ export function HelpPage() {
 
       <Section title="文書の保存">
         <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>
-          1 つの文書を 1 つのファイル（.laterpad）として保存します。メニューの「保存」「開く…」を使うか、
+          1 つの文書を 1 つのファイル（.laterpad）として保存します。上部の「ファイル」メニューの「保存」「開く…」を使うか、
           ファイルを画面にドラッグ＆ドロップして開けます。PC の Chrome / Edge では同じファイルへ上書き保存でき、
           それ以外のブラウザではダウンロードとして保存されます。タイトルはファイル名に使われます。
         </Typography>

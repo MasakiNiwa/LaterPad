@@ -21,12 +21,9 @@ import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import HelpOutlineOutlinedIcon from '@mui/icons-material/HelpOutlineOutlined';
-import NoteAddOutlinedIcon from '@mui/icons-material/NoteAddOutlined';
-import FolderOpenOutlinedIcon from '@mui/icons-material/FolderOpenOutlined';
-import SaveOutlinedIcon from '@mui/icons-material/SaveOutlined';
-import SaveAsOutlinedIcon from '@mui/icons-material/SaveAsOutlined';
 import HistoryIcon from '@mui/icons-material/History';
 import { Brand } from '../components/Brand';
+import { FileMenu } from '../components/FileMenu';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { PreviewDialog } from '../components/PreviewDialog';
 import { HistoryDrawer } from '../components/history/HistoryDrawer';
@@ -39,6 +36,7 @@ import { createExtensions } from '../editor/extensions';
 import { editorContentSx } from '../editor/editorStyles';
 import { LinkDialog } from '../editor/LinkDialog';
 import { Toolbar } from '../editor/Toolbar';
+import { UndoRedoButtons } from '../editor/UndoRedoButtons';
 import { useCopyForAI } from '../editor/useCopyForAI';
 import { useDocumentSession } from '../editor/useDocumentSession';
 import { modKey } from '../lib/platform';
@@ -241,8 +239,19 @@ export function EditorPage() {
   return (
     <Box sx={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}>
       <AppBar position="sticky" sx={(t) => ({ borderBottom: `1px solid ${t.m3.outlineVariant}` })}>
-        <MuiToolbar sx={{ gap: 1 }}>
-          <Brand hideTextOnMobile />
+        <MuiToolbar sx={{ gap: { xs: 0, sm: 0.5 }, px: { xs: 1, sm: 2 } }}>
+          <Box sx={{ mr: { xs: 0.5, sm: 1 } }}>
+            <Brand hideTextOnMobile />
+          </Box>
+          <FileMenu
+            fileName={state.fileName}
+            dirty={state.dirty}
+            onNew={() => guarded({ kind: 'new' })}
+            onOpen={() => guarded({ kind: 'open' })}
+            onSave={() => void handleSave()}
+            onSaveAs={() => void handleSave(true)}
+          />
+          <UndoRedoButtons editor={editor} />
           <Box sx={{ flex: 1, minWidth: 0 }}>
             {state.fileName && (
               <Typography
@@ -257,11 +266,6 @@ export function EditorPage() {
               </Typography>
             )}
           </Box>
-          <Tooltip title={`保存（${mod}+S）`}>
-            <IconButton aria-label="保存" onClick={() => void handleSave()}>
-              <SaveOutlinedIcon />
-            </IconButton>
-          </Tooltip>
           <Tooltip title="履歴">
             <IconButton aria-label="履歴" onClick={() => setHistoryOpen(true)}>
               <HistoryIcon />
@@ -278,7 +282,7 @@ export function EditorPage() {
               disableElevation
               startIcon={<ContentCopyIcon />}
               onClick={handleCopy}
-              sx={{ display: { xs: 'none', sm: 'inline-flex' }, flexShrink: 0 }}
+              sx={{ display: { xs: 'none', sm: 'inline-flex' }, flexShrink: 0, ml: 0.5 }}
             >
               AI用にコピー
             </Button>
@@ -292,13 +296,8 @@ export function EditorPage() {
             onClose={() => setMenuAnchor(null)}
             anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
             transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-            slotProps={{ paper: { sx: { minWidth: 220 } } }}
+            slotProps={{ paper: { sx: { minWidth: 200 } } }}
           >
-            <MenuEntry icon={<NoteAddOutlinedIcon fontSize="small" />} label="新規作成" onClick={closeMenuAnd(() => guarded({ kind: 'new' }))} />
-            <MenuEntry icon={<FolderOpenOutlinedIcon fontSize="small" />} label="開く…" shortcut={`${mod}+O`} onClick={closeMenuAnd(() => guarded({ kind: 'open' }))} />
-            <MenuEntry icon={<SaveOutlinedIcon fontSize="small" />} label="保存" shortcut={`${mod}+S`} onClick={closeMenuAnd(() => void handleSave())} />
-            <MenuEntry icon={<SaveAsOutlinedIcon fontSize="small" />} label="名前を付けて保存…" onClick={closeMenuAnd(() => void handleSave(true))} />
-            <Divider />
             <MenuEntry icon={<SettingsOutlinedIcon fontSize="small" />} label="設定" onClick={closeMenuAnd(() => navigate('/settings'))} />
             <MenuEntry icon={<HelpOutlineOutlinedIcon fontSize="small" />} label="ヘルプ" onClick={closeMenuAnd(() => navigate('/help'))} />
           </Menu>

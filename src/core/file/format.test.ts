@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createNewFile, fileNameFor, FileFormatError, parseFile, serializeFile } from './format';
+import { createNewFile, fileNameFor, FileFormatError, parseFile, serializeFile, titleFromFileName } from './format';
 
 describe('file format', () => {
   it('round-trips a file and keeps unknown fields', () => {
@@ -27,6 +27,12 @@ describe('file format', () => {
       revisions: [{ id: 'x', createdAt: 'now', reason: 'copy', content: file.content }, { bad: true }],
     });
     expect(parseFile(text).revisions).toHaveLength(1);
+  });
+
+  it('derives titles from file names, including legacy .laterpad.json', () => {
+    expect(titleFromFileName('メモ.laterpad')).toBe('メモ');
+    expect(titleFromFileName('メモ.laterpad.json')).toBe('メモ');
+    expect(titleFromFileName('メモ.json')).toBe('メモ');
   });
 
   it('builds safe file names', () => {

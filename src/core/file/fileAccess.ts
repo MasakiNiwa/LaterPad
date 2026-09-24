@@ -114,8 +114,8 @@ function pickFileWithInput(): Promise<File | null> {
   return new Promise((resolve) => {
     const input = document.createElement('input');
     input.type = 'file';
-    // スマホでは拡張子指定だと選べないことがあるため JSON も許可する
-    input.accept = `${FILE_EXTENSION},${FILE_MIME},.json`;
+    // 独自拡張子はスマホで選択不可になることがあるため、種類で絞り込まない
+    // （中身は読み込み時に検証する）
     input.addEventListener('change', () => resolve(input.files?.[0] ?? null), { once: true });
     input.addEventListener('cancel', () => resolve(null), { once: true });
     input.click();
