@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
 import CssBaseline from '@mui/material/CssBaseline';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -14,6 +14,14 @@ function ThemedApp() {
   const prefersDark = useMediaQuery('(prefers-color-scheme: dark)', { noSsr: true });
   const mode = settings.themeMode === 'system' ? (prefersDark ? 'dark' : 'light') : settings.themeMode;
   const theme = useMemo(() => createAppTheme(mode), [mode]);
+
+  // ブラウザ UI（スマホのアドレスバー等）の色をアプリのテーマに合わせる
+  useEffect(() => {
+    document.querySelectorAll('meta[name="theme-color"]').forEach((m) => {
+      m.removeAttribute('media');
+      m.setAttribute('content', theme.m3.surface);
+    });
+  }, [theme]);
 
   return (
     <ThemeProvider theme={theme}>

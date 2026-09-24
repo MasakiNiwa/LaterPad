@@ -83,6 +83,7 @@ export function EditorPage() {
   const [pending, setPending] = useState<PendingAction | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [restoreTarget, setRestoreTarget] = useState<Revision | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Revision | null>(null);
 
   const handleCopy = useCallback(async () => {
     const result = await copy();
@@ -404,10 +405,20 @@ export function EditorPage() {
         }}
         onRestore={setRestoreTarget}
         onCopy={(r) => void copyRevision(r)}
-        onDelete={(r) => {
-          session.removeRevision(r.id);
+        onDelete={setDeleteTarget}
+      />
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="この履歴を削除しますか？"
+        message="削除した履歴は元に戻せません。"
+        confirmLabel="削除"
+        danger
+        onConfirm={() => {
+          if (!deleteTarget) return;
+          session.removeRevision(deleteTarget.id);
           setToast('履歴を削除しました');
         }}
+        onClose={() => setDeleteTarget(null)}
       />
       <ConfirmDialog
         open={!!restoreTarget}

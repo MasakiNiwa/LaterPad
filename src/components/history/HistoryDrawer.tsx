@@ -203,10 +203,8 @@ function RevisionDetail({
           <Tooltip title="この履歴を削除">
             <IconButton
               aria-label="この履歴を削除"
-              onClick={() => {
-                onDelete(revision);
-                onBack();
-              }}
+              // 削除されると selected が見つからなくなり、自動的に一覧表示に戻る
+              onClick={() => onDelete(revision)}
             >
               <DeleteOutlineIcon />
             </IconButton>
