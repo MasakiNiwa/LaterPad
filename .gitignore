@@ -3,3 +3,7 @@ dist
 *.tsbuildinfo
 .DS_Store
 coverage
+
+# 動作確認時の一時ファイル
+/*.png
+/*.laterpad

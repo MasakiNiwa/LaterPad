@@ -2,6 +2,7 @@ import type { Extensions } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { TableKit } from '@tiptap/extension-table';
 import { Placeholder } from '@tiptap/extensions';
+import { Search } from './search';
 
 /**
  * エディタで扱う書式。
@@ -22,5 +23,6 @@ export function createExtensions(placeholder: string): Extensions {
       table: { resizable: false },
     }),
     Placeholder.configure({ placeholder }),
+    Search,
   ];
 }
