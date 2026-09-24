@@ -75,6 +75,14 @@ export function editorContentSx(fontSize: FontSize): SxProps<Theme> {
           pointerEvents: 'none',
         },
       },
+      '& .search-match': {
+        bgcolor: theme.palette.mode === 'dark' ? 'rgba(255, 213, 79, 0.28)' : 'rgba(255, 213, 79, 0.55)',
+        borderRadius: '2px',
+      },
+      '& .search-match-current': {
+        bgcolor: theme.palette.mode === 'dark' ? 'rgba(255, 152, 0, 0.6)' : 'rgba(255, 152, 0, 0.7)',
+        outline: `1px solid ${theme.palette.mode === 'dark' ? '#ffb74d' : '#e65100'}`,
+      },
       '& p.is-editor-empty:first-of-type::before': {
         content: 'attr(data-placeholder)',
         color: theme.m3.outline,

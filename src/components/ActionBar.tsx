@@ -1,0 +1,83 @@
+import type { MouseEvent, ReactNode } from 'react';
+import Box from '@mui/material/Box';
+import ButtonBase from '@mui/material/ButtonBase';
+import Divider from '@mui/material/Divider';
+import Tooltip from '@mui/material/Tooltip';
+
+/** アイコンの下にラベルが付いた操作ボタンを横に並べるバー */
+export function ActionBar({ children }: { children: ReactNode }) {
+  return (
+    <Box
+      role="toolbar"
+      aria-label="操作"
+      sx={{
+        display: 'flex',
+        alignItems: 'stretch',
+        gap: { xs: 0, sm: 0.5 },
+        px: { xs: 0.5, sm: 1.5 },
+        py: 0.5,
+        overflowX: 'auto',
+        scrollbarWidth: 'none',
+        '&::-webkit-scrollbar': { display: 'none' },
+        '& > *': { flexShrink: 0 },
+      }}
+    >
+      {children}
+    </Box>
+  );
+}
+
+interface ActionButtonProps {
+  icon: ReactNode;
+  label: string;
+  onClick: (e: MouseEvent<HTMLElement>) => void;
+  disabled?: boolean;
+  active?: boolean;
+  /** 強調色で表示する（保存が必要な時など） */
+  accent?: boolean;
+  tooltip?: string;
+  /** スマホ幅では表示しない（「その他」メニューから使う） */
+  hideOnMobile?: boolean;
+}
+
+export function ActionButton({ icon, label, onClick, disabled, active, accent, tooltip, hideOnMobile }: ActionButtonProps) {
+  const button = (
+    <ButtonBase
+      aria-label={label}
+      aria-pressed={active}
+      disabled={disabled}
+      onClick={onClick}
+      // エディタの選択範囲を保ったまま操作できるようにする
+      onMouseDown={(e) => e.preventDefault()}
+      sx={(t) => ({
+        display: hideOnMobile ? { xs: 'none', sm: 'flex' } : 'flex',
+        flexDirection: 'column',
+        // スマホではボタンを均等幅で並べ、横スクロールなしで収める
+        flex: { xs: '1 1 0', sm: '0 0 auto' },
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '2px',
+        minWidth: { xs: 0, sm: 60 },
+        px: { xs: 0, sm: 0.75 },
+        py: 0.5,
+        borderRadius: '12px',
+        color: disabled ? t.palette.text.disabled : accent ? t.palette.primary.main : t.m3.onSurface,
+        bgcolor: active ? t.m3.primaryContainer : 'transparent',
+        transition: 'background-color 120ms',
+        '&:hover': { bgcolor: active ? t.m3.primaryContainer : t.palette.action.hover },
+        '& svg': { fontSize: 24 },
+      })}
+    >
+      {icon}
+      <Box component="span" sx={{ fontSize: { xs: 10, sm: 11 }, lineHeight: 1.3, fontWeight: 500, whiteSpace: 'nowrap', letterSpacing: { xs: '-0.02em', sm: 0 } }}>
+        {label}
+      </Box>
+    </ButtonBase>
+  );
+  if (!tooltip || disabled) return button;
+  return <Tooltip title={tooltip}>{button}</Tooltip>;
+}
+
+export function ActionDivider() {
+  return <Divider orientation="vertical" flexItem sx={{ mx: 0.5, my: 1, display: { xs: 'none', sm: 'block' } }} />;
+}

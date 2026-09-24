@@ -15,6 +15,8 @@ export function HelpPage() {
   const shortcuts: [string, string][] = [
     ['AI用にコピー', `${mod} + Shift + Enter`],
     ['保存 / 開く', `${mod} + S / ${mod} + O`],
+    ['検索 / 置換', `${mod} + F / ${mod} + H`],
+    ['次を検索 / 前を検索', 'Enter / Shift + Enter'],
     ['本文に戻す', `${mod} + Alt + 0`],
     ['太字 / 斜体', `${mod} + B / ${mod} + I`],
     ['取り消し線', `${mod} + Shift + S`],
@@ -84,11 +86,18 @@ export function HelpPage() {
         </Typography>
       </Section>
 
+      <Section title="検索と置換">
+        <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>
+          上部の「検索」で検索バーが開きます。一致した箇所がハイライトされ、矢印ボタンか Enter で移動できます。
+          「Aa」で大文字・小文字を区別、置換ボタンで置換欄が開き「置換」「すべて置換」ができます。置換は「戻す」で取り消せます。
+        </Typography>
+      </Section>
+
       <Section title="文書の保存">
         <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>
-          1 つの文書を 1 つのファイル（.laterpad）として保存します。上部の「ファイル」メニューの「保存」「開く…」を使うか、
+          1 つの文書を 1 つのファイル（.laterpad）として保存します。上部の「開く」「保存」ボタン（「その他」に「名前を付けて保存」）を使うか、
           ファイルを画面にドラッグ＆ドロップして開けます。PC の Chrome / Edge では同じファイルへ上書き保存でき、
-          それ以外のブラウザではダウンロードとして保存されます。タイトルはファイル名に使われます。
+          それ以外のブラウザではダウンロードとして保存されます。上部のタイトル欄の文字がファイル名に使われます。
         </Typography>
       </Section>
 
