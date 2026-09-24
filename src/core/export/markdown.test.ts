@@ -138,3 +138,25 @@ describe('toMarkdownXml', () => {
     expect(toMarkdownXml(doc(p()))).toBe('');
   });
 });
+
+describe('task lists and priority', () => {
+  const task = (text: string, checked: boolean): DocNode => ({ type: 'taskItem', attrs: { checked }, content: [p(t(text))] });
+  it('serializes task lists', () => {
+    const d = doc({ type: 'taskList', content: [task('済み', true), task('未完了', false)] });
+    expect(toMarkdown(d)).toBe('- [x] 済み\n- [ ] 未完了');
+    expect(toPlainText(d)).toBe('☑ 済み\n☐ 未完了');
+  });
+
+  it('prefixes priority marks', () => {
+    const must = ['priority', { level: 'must' }] as [string, Record<string, unknown>];
+    const should = ['priority', { level: 'should' }] as [string, Record<string, unknown>];
+    const d = doc(p(t('背景は白', must)), p(t('明るい色', should), t(' で')));
+    expect(toMarkdown(d)).toBe('【必須】背景は白\n【推奨】明るい色 で');
+    expect(toPlainText(d)).toBe('【必須】背景は白\n【推奨】明るい色 で');
+  });
+
+  it('keeps line breaks inside list items as continuation lines', () => {
+    const d = doc({ type: 'bulletList', content: [li(p(t('一行目'), { type: 'hardBreak' }, t('二行目')))] });
+    expect(toMarkdown(d)).toBe('- 一行目\n  二行目');
+  });
+});

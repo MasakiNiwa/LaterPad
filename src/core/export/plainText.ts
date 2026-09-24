@@ -1,5 +1,6 @@
 import type { DocNode } from '../document';
 import { AI_BLOCK_NODE, roleInfo } from '../aiBlocks';
+import { priorityPrefix } from './markdown';
 import { tableToGrid } from './tableGrid';
 import type { Exporter } from './types';
 
@@ -26,6 +27,10 @@ function stripBlock(node: DocNode): string {
   switch (node.type) {
     case 'bulletList':
       return (node.content ?? []).map((item) => indent(stripBlocks(item.content ?? []), '・')).join('\n');
+    case 'taskList':
+      return (node.content ?? [])
+        .map((item) => indent(stripBlocks(item.content ?? []), item.attrs?.checked ? '☑ ' : '☐ '))
+        .join('\n');
     case 'orderedList': {
       const start = Number(node.attrs?.start ?? 1) || 1;
       return (node.content ?? [])
@@ -53,8 +58,22 @@ function stripBlock(node: DocNode): string {
       return '\n';
     default:
       if (!node.content) return '';
-      return isInlineContainer(node) ? node.content.map(stripBlock).join('') : stripBlocks(node.content);
+      return isInlineContainer(node) ? stripInline(node.content) : stripBlocks(node.content);
   }
+}
+
+/** インライン要素を文字だけにする。重要度の印が始まる所には【必須】【推奨】を付ける */
+function stripInline(nodes: DocNode[]): string {
+  let out = '';
+  let prevLevel: unknown = null;
+  for (const n of nodes) {
+    const mark = n.marks?.find((m) => m.type === 'priority');
+    const level = mark?.attrs?.level ?? null;
+    if (mark && level !== prevLevel) out += priorityPrefix(mark);
+    prevLevel = level;
+    out += stripBlock(n);
+  }
+  return out;
 }
 
 function isInlineContainer(node: DocNode): boolean {

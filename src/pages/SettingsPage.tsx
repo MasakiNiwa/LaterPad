@@ -132,6 +132,24 @@ export function SettingsPage() {
         ))}
       </Section>
 
+      <Section title="編集">
+        <Box
+          component="label"
+          sx={{ display: 'flex', alignItems: 'center', gap: 2, px: 2, py: 1.5, cursor: 'pointer' }}
+        >
+          <Box sx={{ flex: 1 }}>
+            <Typography sx={{ fontWeight: 500 }}>リストの項目内で改行する</Typography>
+            <Typography variant="body2" color="text.secondary">
+              オンにすると、リストで Enter を押したときに同じ項目の中で改行します。空の行でもう一度 Enter を押すと新しい項目になります。
+            </Typography>
+          </Box>
+          <Switch
+            checked={settings.listEnterLineBreak}
+            onChange={(e) => updateSettings({ listEnterLineBreak: e.target.checked })}
+          />
+        </Box>
+      </Section>
+
       <Section title="起動時">
         <Box
           component="label"
