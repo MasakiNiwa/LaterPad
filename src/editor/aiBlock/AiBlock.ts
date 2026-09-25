@@ -1,5 +1,5 @@
 import { Node, mergeAttributes, ReactNodeViewRenderer, type Editor } from '@tiptap/react';
-import { NodeSelection, Plugin, PluginKey, TextSelection } from '@tiptap/pm/state';
+import { TextSelection } from '@tiptap/pm/state';
 import type { Node as PMNode } from '@tiptap/pm/model';
 import { AI_BLOCK_NODE, AI_TEMPLATES, roleInfo, templateContent, type AiBlockRole } from '../../core/aiBlocks';
 import { AiBlockView } from './AiBlockView';
@@ -19,6 +19,8 @@ declare module '@tiptap/core' {
       deleteAiBlockAt: (pos: number) => ReturnType;
       /** pos の意味ブロックを同じ階層の中で前後に移動する */
       moveAiBlockAt: (pos: number, direction: -1 | 1) => ReturnType;
+      /** pos の意味ブロックを、同じ親の中の index 番目の子の前へ移動する（末尾は子の数） */
+      moveAiBlockTo: (pos: number, index: number) => ReturnType;
       /** pos の意味ブロックの中身だけを選択する */
       selectAiBlockContentAt: (pos: number) => ReturnType;
       /** pos の意味ブロックの中身を空にする（ブロックは残す） */
@@ -45,8 +47,6 @@ export const AiBlock = Node.create({
   group: 'block',
   content: 'block+',
   defining: true,
-  // ラベル左のつまみでドラッグして並べ替えられるようにする
-  draggable: true,
 
   addAttributes() {
     return {
@@ -116,56 +116,6 @@ export const AiBlock = Node.create({
     };
   },
 
-  addProseMirrorPlugins() {
-    return [
-      new Plugin({
-        key: new PluginKey('aiBlockDrop'),
-        props: {
-          // 意味ブロックのドラッグは、元と同じ階層（同じ親の中）での並べ替えに限定する
-          handleDrop: (view, event, _slice, moved) => {
-            const { selection, doc } = view.state;
-            if (!moved || !(selection instanceof NodeSelection) || selection.node.type.name !== AI_BLOCK_NODE) return false;
-            const coords = view.posAtCoords({ left: event.clientX, top: event.clientY });
-            if (!coords) return false;
-            const $origin = doc.resolve(selection.from);
-            const depth = $origin.depth;
-            const parent = $origin.parent;
-            const parentStart = $origin.start(depth);
-            const $drop = doc.resolve(coords.pos);
-
-            // 落とした位置が同じ親の中なら、その位置にある子の前後どちらかへ。外なら先頭か末尾へ
-            let index: number;
-            const sameParent = $drop.depth >= depth && $drop.start(depth) === parentStart;
-            if (sameParent) {
-              index = $drop.index(depth);
-              const childPos = parentStart + childOffset(parent, index);
-              const dom = view.nodeDOM(childPos) as HTMLElement | null;
-              if (dom?.getBoundingClientRect) {
-                const rect = dom.getBoundingClientRect();
-                if (event.clientY > rect.top + rect.height / 2) index += 1;
-              }
-            } else {
-              index = coords.pos < parentStart ? 0 : parent.childCount;
-            }
-            const originIndex = $origin.index(depth);
-            if (index === originIndex || index === originIndex + 1) return true; // 位置が変わらない
-
-            const node = selection.node;
-            const target = parentStart + childOffset(parent, index);
-            const tr = view.state.tr.insert(target, node);
-            const from = tr.mapping.map(selection.from, 1);
-            tr.delete(from, from + node.nodeSize);
-            const inserted = tr.mapping.map(target, -1);
-            tr.setSelection(TextSelection.near(tr.doc.resolve(inserted + 1)));
-            view.dispatch(tr.scrollIntoView());
-            event.preventDefault();
-            return true;
-          },
-        },
-      }),
-    ];
-  },
-
   addCommands() {
     return {
       setAiBlock:
@@ -206,6 +156,24 @@ export const AiBlock = Node.create({
             const target = direction < 0 ? pos - sibling.nodeSize : pos + sibling.nodeSize;
             tr.insert(target, node);
             tr.setSelection(TextSelection.near(tr.doc.resolve(target + 1))).scrollIntoView();
+          }
+          return true;
+        },
+      moveAiBlockTo:
+        (pos, index) =>
+        ({ state, tr, dispatch }) => {
+          const node = state.doc.nodeAt(pos);
+          if (node?.type.name !== AI_BLOCK_NODE) return false;
+          const $pos = state.doc.resolve(pos);
+          const origin = $pos.index();
+          if (index === origin || index === origin + 1 || index < 0 || index > $pos.parent.childCount) return false;
+          if (dispatch) {
+            const target = $pos.start() + childOffset($pos.parent, index);
+            tr.insert(target, node);
+            const from = tr.mapping.map(pos, 1);
+            tr.delete(from, from + node.nodeSize);
+            const inserted = tr.mapping.map(target, -1);
+            tr.setSelection(TextSelection.near(tr.doc.resolve(inserted + 1))).scrollIntoView();
           }
           return true;
         },

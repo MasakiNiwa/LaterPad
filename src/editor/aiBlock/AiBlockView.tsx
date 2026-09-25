@@ -25,6 +25,7 @@ import { copyText } from '../../lib/clipboard';
 import { notify } from '../../lib/notify';
 import { AI_BLOCK_ROLES, roleInfo, type AiBlockRole } from '../../core/aiBlocks';
 import { ROLE_STYLE } from './roleStyle';
+import { startBlockDrag } from './blockDrag';
 
 /** 意味ブロックの見た目。上部に役割のラベル（種類の変更・名前・解除）を表示する */
 export function AiBlockView({ node, updateAttributes, editor, getPos }: ReactNodeViewProps) {
@@ -109,20 +110,30 @@ export function AiBlockView({ node, updateAttributes, editor, getPos }: ReactNod
         }}
       >
         <Box contentEditable={false} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, userSelect: 'none', mb: 0.25 }}>
-          {/* ドラッグで並べ替えるためのつまみ（マウス操作の端末のみ。スマホはメニューの「上へ」「下へ」） */}
+          {/* つまみ: 押したまま上下に動かして並べ替え（マウス・タッチ共通） */}
           <Box
-            data-drag-handle
-            draggable
-            aria-label="ドラッグして並べ替え"
-            title="ドラッグして並べ替え"
+            role="button"
+            aria-label="押したまま動かして並べ替え"
+            title="押したまま上下に動かして並べ替え"
+            onPointerDown={(e) => {
+              const pos = getPos();
+              if (typeof pos === 'number') startBlockDrag(e, editor, pos, style.light);
+            }}
             sx={{
-              display: 'none',
-              '@media (pointer: fine)': { display: 'inline-flex' },
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
               ml: -1.25,
-              mr: -0.5,
+              mr: -0.25,
+              // タッチでも掴みやすいよう当たり判定を広げる
+              width: { xs: 32, sm: 22 },
+              height: { xs: 28, sm: 22 },
+              my: { xs: -0.5, sm: 0 },
+              borderRadius: '6px',
               color: 'text.disabled',
               cursor: 'grab',
-              '&:active': { cursor: 'grabbing' },
+              touchAction: 'none',
+              '&:active': { cursor: 'grabbing', bgcolor: 'action.selected' },
               '&:hover': { color: 'var(--ai-color)' },
             }}
           >

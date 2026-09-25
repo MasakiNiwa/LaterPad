@@ -42,7 +42,9 @@ import { PRIORITY_COLORS } from './editorStyles';
 import DashboardCustomizeOutlinedIcon from '@mui/icons-material/DashboardCustomizeOutlined';
 import { AI_BLOCK_NODE, AI_BLOCK_ROLES, AI_TEMPLATES, roleInfo, type AiBlockRole } from '../core/aiBlocks';
 import { ROLE_STYLE } from './aiBlock/roleStyle';
-import { GroupMenu, type GroupEntry } from './GroupMenu';
+import { GroupMenu, GroupRibbon, type GroupEntry } from './GroupMenu';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useSettings } from '../settings/SettingsContext';
 import { TableSizePicker } from './TableSizePicker';
 import { modKey } from '../lib/platform';
 
@@ -85,6 +87,10 @@ export function Toolbar({ editor, onLinkClick }: ToolbarProps) {
   });
   const [tableAnchor, setTableAnchor] = useState<HTMLElement | null>(null);
   const theme = useTheme();
+  const { settings } = useSettings();
+  // スマホでは、グループを押すとメニューではなく「アクション列」を開き、よく使う操作に 1 タップで届くようにする
+  const useRibbon = useMediaQuery(theme.breakpoints.down('sm'));
+  const [ribbonGroup, setRibbonGroup] = useState<string | null>(null);
 
   if (!s) return null;
   const chain = () => editor.chain().focus();
@@ -98,7 +104,7 @@ export function Toolbar({ editor, onLinkClick }: ToolbarProps) {
     </Box>
   );
   const ai: GroupEntry[] = [
-    { kind: 'header', label: 'テンプレートから始める' },
+    { kind: 'header', label: 'テンプレートから始める', short: 'テンプレート' },
     ...AI_TEMPLATES.map((t) => ({
       label: t.label,
       description: t.description,
@@ -109,6 +115,7 @@ export function Toolbar({ editor, onLinkClick }: ToolbarProps) {
     {
       kind: 'header',
       label: s.aiRole ? `「${roleInfo(s.aiRole).label}」の中に入れ子のブロックを作る` : '選択した段落をブロックにする',
+      short: s.aiRole ? '入れ子' : 'ブロック化',
     },
     ...AI_BLOCK_ROLES.map((r) => ({
       label: r.label,
@@ -117,7 +124,7 @@ export function Toolbar({ editor, onLinkClick }: ToolbarProps) {
       onSelect: () => chain().wrapAiBlock(r.role).run(),
     })),
     { kind: 'divider' },
-    { kind: 'header', label: '重要度（選択した文字、または今の行）' },
+    { kind: 'header', label: '重要度（選択した文字、または今の行）', short: '重要度' },
     { label: '必須', description: '必ず守ってほしい（【必須】が付きます）', icon: <PriorityHighIcon sx={{ color: PRIORITY_COLORS.must }} />, active: s.priority === 'must', onSelect: () => chain().setPriority('must').run() },
     { label: '推奨', description: 'できれば守ってほしい（【推奨】が付きます）', icon: <ThumbUpOutlinedIcon sx={{ color: PRIORITY_COLORS.should }} />, active: s.priority === 'should', onSelect: () => chain().setPriority('should').run() },
     { label: '重要度を外す', icon: <FormatClearIcon />, disabled: !s.priority, onSelect: () => chain().unsetPriority().run() },
@@ -183,7 +190,18 @@ export function Toolbar({ editor, onLinkClick }: ToolbarProps) {
     { label: '表を削除', icon: <DeleteForeverOutlinedIcon />, danger: true, onSelect: () => chain().deleteTable().run() },
   ];
 
+  const groups = [
+    { id: 'ai', label: aiLabel, icon: <AutoAwesomeOutlinedIcon />, entries: ai, active: !!s.aiRole },
+    { id: 'paragraph', label: blockLabel, icon: <TitleIcon />, entries: paragraph, active: !!s.heading || s.blockquote || s.codeBlock },
+    { id: 'text', label: '文字', icon: <TextFieldsIcon />, entries: text, active: s.bold || s.italic || s.strike || s.code },
+    { id: 'list', label: 'リスト', icon: <FormatListBulletedIcon />, entries: list, active: s.bulletList || s.orderedList || s.taskList },
+    { id: 'insert', label: '挿入', icon: <AddBoxOutlinedIcon />, entries: insert, active: s.link },
+    ...(s.table ? [{ id: 'table', label: '表', icon: <TableChartOutlinedIcon />, entries: table, active: false, highlight: true }] : []),
+  ];
+  const openRibbon = useRibbon ? groups.find((g) => g.id === ribbonGroup) : undefined;
+
   return (
+    <>
     <Box
       role="toolbar"
       aria-label="書式ツールバー"
@@ -202,12 +220,18 @@ export function Toolbar({ editor, onLinkClick }: ToolbarProps) {
         '& > *': { flexShrink: 0 },
       }}
     >
-      <GroupMenu label={aiLabel} icon={<AutoAwesomeOutlinedIcon />} entries={ai} active={!!s.aiRole} />
-      <GroupMenu label={blockLabel} icon={<TitleIcon />} entries={paragraph} active={!!s.heading || s.blockquote || s.codeBlock} />
-      <GroupMenu label="文字" icon={<TextFieldsIcon />} entries={text} active={s.bold || s.italic || s.strike || s.code} />
-      <GroupMenu label="リスト" icon={<FormatListBulletedIcon />} entries={list} active={s.bulletList || s.orderedList || s.taskList} />
-      <GroupMenu label="挿入" icon={<AddBoxOutlinedIcon />} entries={insert} active={s.link} />
-      {s.table && <GroupMenu label="表" icon={<TableChartOutlinedIcon />} entries={table} highlight />}
+      {groups.map((g) => (
+        <GroupMenu
+          key={g.id}
+          label={g.label}
+          icon={g.icon}
+          entries={g.entries}
+          active={g.active}
+          highlight={g.highlight}
+          compact={settings.iconOnly}
+          ribbon={useRibbon ? { open: ribbonGroup === g.id, onToggle: () => setRibbonGroup((v) => (v === g.id ? null : g.id)) } : undefined}
+        />
+      ))}
 
       {s.codeBlock && (
         <Tooltip title="コードの言語（例: python, ts）。AI にコードの種類を伝えます">
@@ -250,5 +274,7 @@ export function Toolbar({ editor, onLinkClick }: ToolbarProps) {
         }}
       />
     </Box>
+    {openRibbon && <GroupRibbon entries={openRibbon.entries} compact={settings.iconOnly} />}
+    </>
   );
 }

@@ -81,6 +81,18 @@ export function SettingsPage() {
           </Box>
           <Switch checked={settings.compact} onChange={(e) => updateSettings({ compact: e.target.checked })} />
         </Box>
+        <Box
+          component="label"
+          sx={{ display: 'flex', alignItems: 'center', gap: 2, px: 2, py: 1, cursor: 'pointer' }}
+        >
+          <Box sx={{ flex: 1 }}>
+            <Typography sx={{ fontWeight: 500 }}>ボタンの文字を省略する（圧縮表示）</Typography>
+            <Typography variant="body2" color="text.secondary">
+              操作ボタンと書式ツールバーをアイコンだけにして、上部の表示を小さくします。慣れてきた方向けです。
+            </Typography>
+          </Box>
+          <Switch checked={settings.iconOnly} onChange={(e) => updateSettings({ iconOnly: e.target.checked })} />
+        </Box>
         <Box sx={{ px: 2, pb: 2 }}>
           <Typography variant="caption" color="text.secondary">
             プレビュー
