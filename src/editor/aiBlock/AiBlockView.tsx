@@ -117,7 +117,7 @@ export function AiBlockView({ node, updateAttributes, editor, getPos }: ReactNod
             title="押したまま上下に動かして並べ替え"
             onPointerDown={(e) => {
               const pos = getPos();
-              if (typeof pos === 'number') startBlockDrag(e, editor, pos, style.light);
+              if (typeof pos === 'number') startBlockDrag(e, editor, pos);
             }}
             sx={{
               display: 'inline-flex',
