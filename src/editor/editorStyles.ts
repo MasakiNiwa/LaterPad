@@ -118,11 +118,18 @@ export function editorContentSx(fontSize: number, lineHeight: number, compact = 
         outline: `1px solid ${theme.palette.mode === 'dark' ? '#ffb74d' : '#e65100'}`,
       },
       // 空の意味ブロック: 役割ごとの書き方の例（AiBlockView が --ai-hint に設定）
+      '& .ai-block-content p.is-empty:only-child': { position: 'relative' },
       '& .ai-block-content p.is-empty:only-child::before': {
         content: 'var(--ai-hint)',
         color: theme.m3.outline,
-        float: 'left',
-        height: 0,
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        top: 0,
+        // 長い例文は 1 行に収め、次のブロックに重ならないようにする
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
         pointerEvents: 'none',
         fontSize: '0.92em',
       },

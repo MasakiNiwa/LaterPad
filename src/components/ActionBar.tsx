@@ -4,6 +4,7 @@ import ButtonBase from '@mui/material/ButtonBase';
 import Divider from '@mui/material/Divider';
 import Tooltip from '@mui/material/Tooltip';
 import { isCoarsePointer } from '../lib/viewport';
+import { useSettings } from '../settings/SettingsContext';
 
 /** アイコンの下にラベルが付いた操作ボタンを横に並べるバー */
 export function ActionBar({ children }: { children: ReactNode }) {
@@ -49,6 +50,8 @@ interface ActionButtonProps {
 }
 
 export function ActionButton({ icon, label, onClick, disabled, active, accent, tooltip, keepFocus, hideOnMobile, primary }: ActionButtonProps) {
+  // 圧縮表示ではラベルを省略してアイコンだけにする（名前はツールチップと読み上げで分かる）
+  const iconOnly = useSettings().settings.iconOnly;
   const button = (
     <ButtonBase
       aria-label={label}
@@ -63,7 +66,8 @@ export function ActionButton({ icon, label, onClick, disabled, active, accent, t
         if (keepFocus || !isCoarsePointer()) e.preventDefault();
       }}
       sx={(t) => ({
-        display: hideOnMobile ? { xs: 'none', sm: 'flex' } : 'flex',
+        // 文字を省略する圧縮表示なら幅に余裕があるので、スマホでも表示する
+        display: hideOnMobile && !iconOnly ? { xs: 'none', sm: 'flex' } : 'flex',
         flexDirection: 'column',
         // スマホではボタンを均等幅で並べ、横スクロールなしで収める
         flex: { xs: '1 1 0', sm: '0 0 auto' },
@@ -72,7 +76,7 @@ export function ActionButton({ icon, label, onClick, disabled, active, accent, t
         gap: '2px',
         minWidth: { xs: 'fit-content', sm: 60 },
         px: primary ? { xs: 0.75, sm: 1.5 } : { xs: 0, sm: 0.75 },
-        py: 0.5,
+        py: iconOnly ? 0.75 : 0.5,
         borderRadius: '12px',
         color: disabled
           ? t.palette.text.disabled
@@ -91,13 +95,13 @@ export function ActionButton({ icon, label, onClick, disabled, active, accent, t
       })}
     >
       {icon}
-      <Box component="span" sx={{ fontSize: { xs: 10, sm: 11 }, lineHeight: 1.3, fontWeight: 500, whiteSpace: 'nowrap', letterSpacing: { xs: '-0.02em', sm: 0 } }}>
+      <Box component="span" sx={{ display: iconOnly ? 'none' : 'inline', fontSize: { xs: 10, sm: 11 }, lineHeight: 1.3, fontWeight: 500, whiteSpace: 'nowrap', letterSpacing: { xs: '-0.02em', sm: 0 } }}>
         {label}
       </Box>
     </ButtonBase>
   );
-  if (!tooltip || disabled) return button;
-  return <Tooltip title={tooltip}>{button}</Tooltip>;
+  if (disabled) return button;
+  return <Tooltip title={tooltip ?? label}>{button}</Tooltip>;
 }
 
 export function ActionDivider() {

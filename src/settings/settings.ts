@@ -12,6 +12,8 @@ export interface Settings {
   lineHeight: number;
   /** 余白を狭くして、画面により多く表示する */
   compact: boolean;
+  /** 操作ボタン・ツールバーの文字を省略してアイコンだけにする（慣れた人向けの圧縮表示） */
+  iconOnly: boolean;
   /** AI用にコピーした時点をリビジョンとして自動記録する */
   revisionOnCopy: boolean;
   /** リスト項目内の Enter で改行する（空の行で Enter すると新しい項目） */
@@ -26,6 +28,7 @@ export const DEFAULT_SETTINGS: Settings = {
   fontSize: 16,
   lineHeight: 1.7,
   compact: false,
+  iconOnly: false,
   revisionOnCopy: true,
   restoreOnStartup: false,
   listEnterLineBreak: false,
