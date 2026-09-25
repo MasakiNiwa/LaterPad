@@ -39,7 +39,7 @@ import { editorContentSx } from '../editor/editorStyles';
 import { LinkDialog } from '../editor/LinkDialog';
 import { Toolbar } from '../editor/Toolbar';
 import { SearchBar } from '../editor/SearchBar';
-import { TableQuickBar } from '../editor/TableQuickBar';
+import { ContextBar } from '../editor/ContextBar';
 import { useCopyForAI } from '../editor/useCopyForAI';
 import { useDocumentSession } from '../editor/useDocumentSession';
 import { modKey } from '../lib/platform';
@@ -431,7 +431,7 @@ export function EditorPage() {
               <Toolbar editor={editor} onLinkClick={() => setLinkOpen(true)} />
             </Box>
             <Box sx={{ maxWidth: HEADER_WIDTH, width: '100%', mx: 'auto' }}>
-              <TableQuickBar editor={editor} />
+              <ContextBar editor={editor} />
             </Box>
             {searchOpen && (
               <SearchBar

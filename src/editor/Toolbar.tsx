@@ -42,8 +42,7 @@ import { PRIORITY_COLORS } from './editorStyles';
 import DashboardCustomizeOutlinedIcon from '@mui/icons-material/DashboardCustomizeOutlined';
 import { AI_BLOCK_NODE, AI_BLOCK_ROLES, AI_TEMPLATES, roleInfo, type AiBlockRole } from '../core/aiBlocks';
 import { ROLE_STYLE } from './aiBlock/roleStyle';
-import { GroupMenu, GroupRibbon, type GroupEntry } from './GroupMenu';
-import useMediaQuery from '@mui/material/useMediaQuery';
+import { GroupMenu, type GroupEntry } from './GroupMenu';
 import { useSettings } from '../settings/SettingsContext';
 import { TableSizePicker } from './TableSizePicker';
 import { modKey } from '../lib/platform';
@@ -88,9 +87,6 @@ export function Toolbar({ editor, onLinkClick }: ToolbarProps) {
   const [tableAnchor, setTableAnchor] = useState<HTMLElement | null>(null);
   const theme = useTheme();
   const { settings } = useSettings();
-  // スマホでは、グループを押すとメニューではなく「アクション列」を開き、よく使う操作に 1 タップで届くようにする
-  const useRibbon = useMediaQuery(theme.breakpoints.down('sm'));
-  const [ribbonGroup, setRibbonGroup] = useState<string | null>(null);
 
   if (!s) return null;
   const chain = () => editor.chain().focus();
@@ -198,10 +194,8 @@ export function Toolbar({ editor, onLinkClick }: ToolbarProps) {
     { id: 'insert', label: '挿入', icon: <AddBoxOutlinedIcon />, entries: insert, active: s.link },
     ...(s.table ? [{ id: 'table', label: '表', icon: <TableChartOutlinedIcon />, entries: table, active: false, highlight: true }] : []),
   ];
-  const openRibbon = useRibbon ? groups.find((g) => g.id === ribbonGroup) : undefined;
 
   return (
-    <>
     <Box
       role="toolbar"
       aria-label="書式ツールバー"
@@ -229,7 +223,6 @@ export function Toolbar({ editor, onLinkClick }: ToolbarProps) {
           active={g.active}
           highlight={g.highlight}
           compact={settings.iconOnly}
-          ribbon={useRibbon ? { open: ribbonGroup === g.id, onToggle: () => setRibbonGroup((v) => (v === g.id ? null : g.id)) } : undefined}
         />
       ))}
 
@@ -274,7 +267,5 @@ export function Toolbar({ editor, onLinkClick }: ToolbarProps) {
         }}
       />
     </Box>
-    {openRibbon && <GroupRibbon entries={openRibbon.entries} compact={settings.iconOnly} />}
-    </>
   );
 }

@@ -1,7 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import Chip from '@mui/material/Chip';
 import Divider from '@mui/material/Divider';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
@@ -41,18 +39,13 @@ interface GroupMenuProps {
   highlight?: boolean;
   /** 文字を省略してアイコンだけで表示する（圧縮表示） */
   compact?: boolean;
-  /**
-   * 指定すると、押したときにメニューではなく「アクション列」（下に並ぶボタン列）を開閉する。
-   * スマホでよく使う操作に 1 タップで届くようにするため。
-   */
-  ribbon?: { open: boolean; onToggle: () => void };
 }
 
 /**
  * 書式をグループ単位でまとめたツールバーボタン。
  * ボタンを押すと、そのグループの機能がアイコン・名前・ショートカット付きで一覧表示される。
  */
-export function GroupMenu({ label, icon, entries, active, highlight, compact, ribbon }: GroupMenuProps) {
+export function GroupMenu({ label, icon, entries, active, highlight, compact }: GroupMenuProps) {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const close = () => setAnchor(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -69,12 +62,12 @@ export function GroupMenu({ label, icon, entries, active, highlight, compact, ri
         size="small"
         color="inherit"
         startIcon={compact ? undefined : icon}
-        endIcon={<ArrowDropDownIcon sx={{ ml: -0.75, transform: ribbon?.open ? 'rotate(180deg)' : undefined }} />}
-        aria-haspopup={ribbon ? undefined : 'menu'}
-        aria-expanded={ribbon ? ribbon.open : !!anchor}
+        endIcon={<ArrowDropDownIcon sx={{ ml: -0.75 }} />}
+        aria-haspopup="menu"
+        aria-expanded={!!anchor}
         aria-label={compact ? label : undefined}
         title={compact ? label : undefined}
-        onClick={(e) => (ribbon ? ribbon.onToggle() : setAnchor(e.currentTarget))}
+        onClick={(e) => setAnchor(e.currentTarget)}
         // エディタの選択範囲を保ったまま操作できるようにする
         onMouseDown={(e) => e.preventDefault()}
         sx={(t) => ({
@@ -84,9 +77,9 @@ export function GroupMenu({ label, icon, entries, active, highlight, compact, ri
           height: 36,
           fontWeight: 500,
           whiteSpace: 'nowrap',
-          color: active || highlight || ribbon?.open ? t.m3.onPrimaryContainer : t.m3.onSurfaceVariant,
-          bgcolor: active || highlight || ribbon?.open ? t.m3.primaryContainer : 'transparent',
-          outline: highlight || ribbon?.open ? `2px solid ${t.palette.primary.main}` : 'none',
+          color: active || highlight ? t.m3.onPrimaryContainer : t.m3.onSurfaceVariant,
+          bgcolor: active || highlight ? t.m3.primaryContainer : 'transparent',
+          outline: highlight ? `2px solid ${t.palette.primary.main}` : 'none',
           outlineOffset: -2,
           '&:hover': { bgcolor: active || highlight ? t.m3.primaryContainer : undefined },
           '& .MuiButton-startIcon': { mr: 0.5 },
@@ -141,62 +134,5 @@ export function GroupMenu({ label, icon, entries, active, highlight, compact, ri
         })}
       </Menu>
     </>
-  );
-}
-
-/**
- * グループの機能を横一列のボタンで並べる「アクション列」。
- * メニューを開かずに 1 タップで実行でき、連続して使える。
- */
-export function GroupRibbon({ entries, compact }: { entries: GroupEntry[]; compact?: boolean }) {
-  return (
-    <Box
-      role="toolbar"
-      aria-label="アクション列"
-      sx={(t) => ({
-        display: 'flex',
-        alignItems: 'center',
-        gap: 0.75,
-        px: 1,
-        py: 0.75,
-        overflowX: 'auto',
-        scrollbarWidth: 'none',
-        '&::-webkit-scrollbar': { display: 'none' },
-        '& > *': { flexShrink: 0 },
-        bgcolor: t.m3.surfaceContainerLow,
-        borderTop: `1px solid ${t.m3.outlineVariant}`,
-      })}
-    >
-      {entries.map((entry, i) => {
-        if (entry.kind === 'divider') return <Divider key={`d${i}`} orientation="vertical" flexItem sx={{ mx: 0.25 }} />;
-        if (entry.kind === 'header')
-          return (
-            <Typography key={`h${i}`} variant="caption" color="text.secondary" sx={{ fontWeight: 600, pl: i ? 0.5 : 0.25 }}>
-              {entry.short ?? entry.label}
-            </Typography>
-          );
-        return (
-          <Chip
-            key={entry.label}
-            icon={<Box component="span" sx={{ display: 'inline-flex', '& svg': { fontSize: 18 } }}>{entry.icon}</Box>}
-            label={compact ? undefined : entry.label}
-            aria-label={entry.label}
-            title={entry.label}
-            disabled={entry.disabled}
-            onClick={(e) => entry.onSelect(e.currentTarget)}
-            onMouseDown={(e) => e.preventDefault()}
-            sx={(t) => ({
-              borderRadius: '10px',
-              fontWeight: 500,
-              bgcolor: entry.active ? t.m3.primaryContainer : t.m3.surface,
-              color: entry.danger ? t.palette.error.main : entry.active ? t.m3.onPrimaryContainer : t.m3.onSurface,
-              border: `1px solid ${entry.active ? t.palette.primary.main : t.m3.outlineVariant}`,
-              '& .MuiChip-icon': { ml: compact ? 0 : '6px', mr: compact ? '-6px' : '-2px', color: 'inherit' },
-              '& .MuiChip-label': { px: compact ? 1 : 1.25 },
-            })}
-          />
-        );
-      })}
-    </Box>
   );
 }

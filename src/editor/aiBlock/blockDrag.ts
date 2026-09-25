@@ -4,9 +4,11 @@ import type { PointerEvent as ReactPointerEvent } from 'react';
 /**
  * 意味ブロックのつまみを押したまま上下に動かして並べ替える（マウス・タッチ共通）。
  * HTML のドラッグ＆ドロップはスマホのタッチで動かないため、ポインターイベントで実装する。
+ *
+ * 動かしている間は、掴んだブロックが指についてきて、他のブロックは場所を空けるように滑らかにずれる。
  * 移動先は元と同じ親の中（同じ階層）に限る。
  */
-export function startBlockDrag(e: ReactPointerEvent<HTMLElement>, editor: Editor, pos: number, color: string) {
+export function startBlockDrag(e: ReactPointerEvent<HTMLElement>, editor: Editor, pos: number) {
   if (e.button !== 0) return;
   e.preventDefault();
   e.stopPropagation();
@@ -16,87 +18,97 @@ export function startBlockDrag(e: ReactPointerEvent<HTMLElement>, editor: Editor
   const parentStart = $pos.start();
   const origin = $pos.index();
 
-  const siblings = (): HTMLElement[] => {
-    const list: HTMLElement[] = [];
-    let offset = 0;
-    parent.forEach((child) => {
-      list.push(view.nodeDOM(parentStart + offset) as HTMLElement);
-      offset += child.nodeSize;
-    });
-    return list;
-  };
-  const dragged = siblings()[origin];
+  // 同じ階層の兄弟要素と、ドラッグ開始時点の位置（ページ座標）
+  const siblings: HTMLElement[] = [];
+  let offset = 0;
+  parent.forEach((child) => {
+    siblings.push(view.nodeDOM(parentStart + offset) as HTMLElement);
+    offset += child.nodeSize;
+  });
+  const dragged = siblings[origin];
   if (!dragged) return;
+  const scrollAtStart = window.scrollY;
+  const rects = siblings.map((el) => {
+    const r = el.getBoundingClientRect();
+    return { top: r.top + scrollAtStart, bottom: r.bottom + scrollAtStart, height: r.height };
+  });
+  const gap = rects.length > 1 ? Math.max(0, rects[1].top - rects[0].bottom) : 8;
+  const shift = rects[origin].height + gap;
+  const startY = e.clientY + scrollAtStart;
 
   const handle = e.currentTarget;
   handle.setPointerCapture(e.pointerId);
-  dragged.style.opacity = '0.45';
-  dragged.style.transition = 'opacity 120ms';
-
-  // 落とす位置を示す線
-  const indicator = document.createElement('div');
-  Object.assign(indicator.style, {
-    position: 'fixed',
-    height: '3px',
-    borderRadius: '2px',
-    background: color,
-    pointerEvents: 'none',
-    zIndex: '2000',
-    display: 'none',
-  } satisfies Partial<CSSStyleDeclaration>);
-  document.body.appendChild(indicator);
+  const prevUserSelect = document.body.style.userSelect;
+  document.body.style.userSelect = 'none';
+  Object.assign(dragged.style, {
+    position: 'relative',
+    zIndex: '5',
+    boxShadow: '0 8px 24px rgba(0,0,0,0.18)',
+    transition: 'box-shadow 120ms',
+    willChange: 'transform',
+  });
+  siblings.forEach((el, i) => {
+    if (i !== origin) el.style.transition = 'transform 160ms ease';
+  });
 
   let index = origin;
-  let lastY = e.clientY;
-  let scrollTimer = 0;
+  let lastClientY = e.clientY;
+  let frame = 0;
 
   const update = () => {
-    const els = siblings();
-    index = els.length;
-    for (let i = 0; i < els.length; i++) {
-      const r = els[i]?.getBoundingClientRect();
-      if (r && lastY < r.top + r.height / 2) {
+    const y = lastClientY + window.scrollY;
+    // 掴んだブロックはポインターについてくる
+    dragged.style.transform = `translateY(${y - startY}px)`;
+    // 落とす位置: 掴んだブロックの中心が、どの兄弟の中心より上にあるか
+    const center = rects[origin].top + rects[origin].height / 2 + (y - startY);
+    index = rects.length;
+    for (let i = 0; i < rects.length; i++) {
+      if (i === origin) continue;
+      if (center < rects[i].top + rects[i].height / 2) {
         index = i;
         break;
       }
     }
-    const unchanged = index === origin || index === origin + 1;
-    const ref = els[Math.min(index, els.length - 1)]?.getBoundingClientRect();
-    const box = dragged.getBoundingClientRect();
-    if (!ref || unchanged) {
-      indicator.style.display = 'none';
-      return;
-    }
-    const y = index < els.length ? ref.top - 4 : ref.bottom + 2;
-    Object.assign(indicator.style, { display: 'block', top: `${y}px`, left: `${box.left}px`, width: `${box.width}px` });
+    // 元の位置と移動先の間にある兄弟は、掴んだブロックの分だけずれて場所を空ける
+    siblings.forEach((el, i) => {
+      if (i === origin) return;
+      let dy = 0;
+      if (i > origin && i < index) dy = -shift;
+      else if (i < origin && i >= index) dy = shift;
+      el.style.transform = dy ? `translateY(${dy}px)` : '';
+    });
   };
 
   // 画面の上下の端に近づいたら自動でスクロールする
-  const autoScroll = () => {
+  const tick = () => {
     const edge = 72;
     const top = (document.querySelector('header')?.getBoundingClientRect().bottom ?? 0) + edge;
     const bottom = (window.visualViewport?.height ?? window.innerHeight) - edge;
-    const dy = lastY < top ? -10 : lastY > bottom ? 10 : 0;
+    const dy = lastClientY < top ? -10 : lastClientY > bottom ? 10 : 0;
     if (dy) {
       window.scrollBy(0, dy);
       update();
     }
-    scrollTimer = window.requestAnimationFrame(autoScroll);
+    frame = window.requestAnimationFrame(tick);
   };
-  scrollTimer = window.requestAnimationFrame(autoScroll);
+  frame = window.requestAnimationFrame(tick);
 
   const onMove = (ev: PointerEvent) => {
-    lastY = ev.clientY;
+    lastClientY = ev.clientY;
     update();
   };
   const finish = (commit: boolean) => {
-    window.cancelAnimationFrame(scrollTimer);
+    window.cancelAnimationFrame(frame);
     handle.removeEventListener('pointermove', onMove);
     handle.removeEventListener('pointerup', onUp);
     handle.removeEventListener('pointercancel', onCancel);
-    indicator.remove();
-    dragged.style.opacity = '';
-    if (commit) editor.chain().moveAiBlockTo(pos, index).run();
+    document.body.style.userSelect = prevUserSelect;
+    siblings.forEach((el) => {
+      el.style.transform = '';
+      el.style.transition = '';
+    });
+    Object.assign(dragged.style, { position: '', zIndex: '', boxShadow: '', willChange: '' });
+    if (commit && index !== origin && index !== origin + 1) editor.chain().moveAiBlockTo(pos, index).run();
   };
   const onUp = () => finish(true);
   const onCancel = () => finish(false);
