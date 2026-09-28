@@ -3,7 +3,13 @@ import type { DocNode } from '../core/document';
 import { isDocEmpty } from '../core/document';
 import { saveFile, type FsFileHandle, type OpenedFile } from '../core/file/fileAccess';
 import { createNewFile, titleFromFileName, type LaterPadFile, type Revision, type RevisionReason } from '../core/file/format';
-import { addRevision as addRevisionTo, removeRevision as removeRevisionFrom } from '../core/revisions';
+import {
+  addRevision as addRevisionTo,
+  clearRevisions as clearRevisionsOf,
+  removeRevision as removeRevisionFrom,
+  renameRevision as renameRevisionOf,
+  setHead,
+} from '../core/revisions';
 import { loadDraft, loadPreviousDraft, saveDraft, stashDraftAsPrevious, type Draft } from '../core/storage/draft';
 
 const DRAFT_SAVE_DELAY = 400;
@@ -128,7 +134,11 @@ export function useDocumentSession(getContent: () => DocNode | null, restoreOnSt
       const content = getContentRef.current() ?? s.file.content;
       const result = addRevisionTo({ ...s.file, content }, content, reason, { note });
       if (!result.revision) return null;
-      const next = { ...s, dirty: true, file: { ...s.file, revisions: result.file.revisions } };
+      const next = {
+        ...s,
+        dirty: true,
+        file: { ...s.file, revisions: result.file.revisions, headRevisionId: result.file.headRevisionId },
+      };
       stateRef.current = next;
       setState(next);
       scheduleDraft();
@@ -137,15 +147,34 @@ export function useDocumentSession(getContent: () => DocNode | null, restoreOnSt
     [scheduleDraft],
   );
 
-  const removeRevision = useCallback(
-    (id: string) => {
+  /** 履歴（版）の一覧を書き換える共通処理 */
+  const updateFile = useCallback(
+    (fn: (file: LaterPadFile) => LaterPadFile) => {
       const s = stateRef.current;
-      const next = { ...s, dirty: true, file: removeRevisionFrom(s.file, id) };
+      const next = { ...s, dirty: true, file: fn(s.file) };
       stateRef.current = next;
       setState(next);
       scheduleDraft();
     },
     [scheduleDraft],
+  );
+
+  const removeRevision = useCallback((id: string) => updateFile((f) => removeRevisionFrom(f, id)), [updateFile]);
+  const clearRevisions = useCallback(() => updateFile((f) => clearRevisionsOf(f)), [updateFile]);
+  const renameRevision = useCallback(
+    (id: string, note: string) => updateFile((f) => renameRevisionOf(f, id, note)),
+    [updateFile],
+  );
+  /**
+   * 過去の版に戻る前の準備。今の状態を「復元前の状態」として残し、戻る版を現在の元にする。
+   * 以後に記録する版はその版から枝分かれする。本文の差し替えは呼び出し側（エディタ）で行う。
+   */
+  const checkoutRevision = useCallback(
+    (id: string) => {
+      addRevision('restore');
+      updateFile((f) => setHead(f, id));
+    },
+    [addRevision, updateFile],
   );
 
   /** ファイルへ保存する。キャンセル時は null */
@@ -185,9 +214,12 @@ export function useDocumentSession(getContent: () => DocNode | null, restoreOnSt
       needsDiscardConfirm,
       addRevision,
       removeRevision,
+      clearRevisions,
+      renameRevision,
+      checkoutRevision,
       previousDraft,
       restorePrevious,
     }),
-    [state, markChanged, setTitle, newDocument, openDocument, save, snapshot, needsDiscardConfirm, addRevision, removeRevision, previousDraft, restorePrevious],
+    [state, markChanged, setTitle, newDocument, openDocument, save, snapshot, needsDiscardConfirm, addRevision, removeRevision, clearRevisions, renameRevision, checkoutRevision, previousDraft, restorePrevious],
   );
 }

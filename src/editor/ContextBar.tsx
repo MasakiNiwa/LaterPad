@@ -15,6 +15,9 @@ import FormatIndentDecreaseIcon from '@mui/icons-material/FormatIndentDecrease';
 import ChecklistIcon from '@mui/icons-material/Checklist';
 import AutoAwesomeOutlinedIcon from '@mui/icons-material/AutoAwesomeOutlined';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import VerticalAlignTopIcon from '@mui/icons-material/VerticalAlignTop';
+import VerticalAlignBottomIcon from '@mui/icons-material/VerticalAlignBottom';
+import UnfoldLessIcon from '@mui/icons-material/UnfoldLess';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import LayersClearOutlinedIcon from '@mui/icons-material/LayersClearOutlined';
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
@@ -103,6 +106,9 @@ export function ContextBar({ editor }: { editor: Editor }) {
       icon: <AutoAwesomeOutlinedIcon fontSize="small" />,
       label: roleInfo(ctx.blockRole).label,
       actions: [
+        { label: '上に行', icon: <VerticalAlignTopIcon />, run: () => chain().insertLineAroundAiBlock(pos, -1).run() },
+        { label: '下に行', icon: <VerticalAlignBottomIcon />, run: () => chain().insertLineAroundAiBlock(pos, 1).run() },
+        { label: '畳む', icon: <UnfoldLessIcon />, run: () => editor.chain().toggleAiBlockCollapsed(pos).run() },
         { label: '上へ', icon: <ArrowUpwardIcon />, disabled: !ctx.canUp, run: () => chain().moveAiBlockAt(pos, -1).run() },
         { label: '下へ', icon: <ArrowDownwardIcon />, disabled: !ctx.canDown, run: () => chain().moveAiBlockAt(pos, 1).run() },
         { label: '解除', icon: <LayersClearOutlinedIcon />, run: () => chain().unsetAiBlock().run() },

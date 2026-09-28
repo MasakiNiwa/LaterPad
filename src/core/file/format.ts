@@ -23,8 +23,13 @@ export interface Revision {
   content: DocNode;
   /** リビジョン作成時点のタイトル */
   title?: string;
-  /** 任意のメモ（手動作成時など） */
+  /** 任意の名前・メモ（「完成版」など、あとから付けられる） */
   note?: string;
+  /**
+   * この版の元になった版の ID（分岐を表す）。最初の版は null。
+   * 古い形式のファイルでは未設定で、読み込み時に時系列順のつながりとして補う。
+   */
+  parentId?: string | null;
 }
 
 export interface LaterPadFile {
@@ -36,6 +41,8 @@ export interface LaterPadFile {
   updatedAt: string;
   content: DocNode;
   revisions: Revision[];
+  /** 現在の本文の元になっている版の ID（次に記録する版の親になる） */
+  headRevisionId?: string | null;
   /** 未知のフィールド（新しいバージョンで追加されたもの）を保持する */
   [extra: string]: unknown;
 }
@@ -101,7 +108,10 @@ export function parseFile(text: string): LaterPadFile {
     createdAt: typeof data.createdAt === 'string' ? data.createdAt : now,
     updatedAt: typeof data.updatedAt === 'string' ? data.updatedAt : now,
     content: data.content,
-    revisions: Array.isArray(data.revisions) ? data.revisions.filter(isRevision) : [],
+    ...normalizeRevisionGraph(
+      Array.isArray(data.revisions) ? data.revisions.filter(isRevision) : [],
+      typeof data.headRevisionId === 'string' ? data.headRevisionId : undefined,
+    ),
   };
 }
 
@@ -129,4 +139,26 @@ function isRevision(v: unknown): v is Revision {
   return (
     isObject(v) && typeof v.id === 'string' && typeof v.createdAt === 'string' && isDocNode(v.content)
   );
+}
+
+/**
+ * 版のつながり（親子関係）を整える。
+ * - 親が未設定の古い版は、1 つ前の版を親とみなす（時系列の一本道）
+ * - 存在しない版を親にしている版は、根（親なし）にする
+ * - 現在の元になる版が不明なら、最新の版にする
+ */
+export function normalizeRevisionGraph(
+  revisions: Revision[],
+  headRevisionId: string | null | undefined,
+): { revisions: Revision[]; headRevisionId: string | null } {
+  const ids = new Set(revisions.map((r) => r.id));
+  const normalized = revisions.map((r, i) => {
+    let parentId = r.parentId;
+    if (parentId === undefined) parentId = i > 0 ? revisions[i - 1].id : null;
+    if (parentId !== null && !ids.has(parentId)) parentId = null;
+    return { ...r, parentId };
+  });
+  const head =
+    headRevisionId && ids.has(headRevisionId) ? headRevisionId : (normalized[normalized.length - 1]?.id ?? null);
+  return { revisions: normalized, headRevisionId: head };
 }

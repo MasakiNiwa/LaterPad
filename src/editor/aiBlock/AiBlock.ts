@@ -15,6 +15,10 @@ declare module '@tiptap/core' {
       wrapAiBlock: (role: AiBlockRole) => ReturnType;
       /** テンプレート（空のブロックの組み合わせ）を挿入する */
       insertAiTemplate: (templateId: string) => ReturnType;
+      /** pos の意味ブロックの前（side=-1）または後ろ（side=1）に空の行を入れ、そこへカーソルを移す */
+      insertLineAroundAiBlock: (pos: number, side: -1 | 1) => ReturnType;
+      /** pos の意味ブロックを折りたたむ／広げる */
+      toggleAiBlockCollapsed: (pos: number) => ReturnType;
       /** pos の意味ブロックを中身ごと削除する */
       deleteAiBlockAt: (pos: number) => ReturnType;
       /** pos の意味ブロックを同じ階層の中で前後に移動する */
@@ -54,6 +58,11 @@ export const AiBlock = Node.create({
         default: 'instruction',
         parseHTML: (el) => roleInfo(el.getAttribute('data-ai-block')).role,
         renderHTML: (attrs) => ({ 'data-ai-block': attrs.role }),
+      },
+      collapsed: {
+        default: false,
+        parseHTML: (el) => el.getAttribute('data-collapsed') === 'true',
+        renderHTML: (attrs) => (attrs.collapsed ? { 'data-collapsed': 'true' } : {}),
       },
       label: {
         default: null,
@@ -132,6 +141,34 @@ export const AiBlock = Node.create({
         (role) =>
         ({ commands }) =>
           commands.wrapIn(AI_BLOCK_NODE, { role }),
+      insertLineAroundAiBlock:
+        (pos, side) =>
+        ({ state, tr, dispatch }) => {
+          const node = state.doc.nodeAt(pos);
+          if (node?.type.name !== AI_BLOCK_NODE) return false;
+          if (dispatch) {
+            const at = side < 0 ? pos : pos + node.nodeSize;
+            tr.insert(at, state.schema.nodes.paragraph.create());
+            tr.setSelection(TextSelection.create(tr.doc, at + 1)).scrollIntoView();
+          }
+          return true;
+        },
+      toggleAiBlockCollapsed:
+        (pos) =>
+        ({ state, tr, dispatch }) => {
+          const node = state.doc.nodeAt(pos);
+          if (node?.type.name !== AI_BLOCK_NODE) return false;
+          if (dispatch) {
+            const collapsed = !node.attrs.collapsed;
+            tr.setNodeMarkup(pos, undefined, { ...node.attrs, collapsed });
+            // 畳んだブロックの中にカーソルが残らないよう、ブロックの後ろへ移す
+            const { from } = state.selection;
+            if (collapsed && from > pos && from < pos + node.nodeSize) {
+              tr.setSelection(TextSelection.near(tr.doc.resolve(pos + node.nodeSize)));
+            }
+          }
+          return true;
+        },
       deleteAiBlockAt:
         (pos) =>
         ({ state, tr, dispatch }) => {

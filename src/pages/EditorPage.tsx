@@ -188,8 +188,8 @@ export function EditorPage() {
   const restoreRevision = useCallback(
     (revision: Revision) => {
       if (!editor) return;
-      // 復元前の状態を残しておき、復元自体も取り消せるようにする
-      session.addRevision('restore');
+      // 今の状態を「復元前の状態」として残し、戻る版を「いまの元」にする（以後の記録はここから枝分かれ）
+      session.checkoutRevision(revision.id);
       const chain = editor.chain().setContent(revision.content, { emitUpdate: true });
       if (!isCoarsePointer()) chain.focus('start');
       chain.run();
@@ -546,6 +546,14 @@ export function EditorPage() {
         onRestore={setRestoreTarget}
         onCopy={(r) => void copyRevision(r)}
         onDelete={setDeleteTarget}
+        onRename={(r, note) => {
+          session.renameRevision(r.id, note);
+          notify(note.trim() ? `版に「${note.trim()}」と名前を付けました` : '版の名前を外しました');
+        }}
+        onClearAll={() => {
+          session.clearRevisions();
+          notify('すべての履歴を削除しました');
+        }}
       />
       <ConfirmDialog
         open={!!deleteTarget}
@@ -563,7 +571,7 @@ export function EditorPage() {
       <ConfirmDialog
         open={!!restoreTarget}
         title="この版に戻しますか？"
-        message="現在の内容は「復元前の状態」として履歴に残るため、あとから戻すこともできます。"
+        message="現在の内容は「復元前の状態」として履歴に残ります。戻した版から編集を続けると、履歴はそこから枝分かれします。"
         confirmLabel="この版に戻す"
         onConfirm={() => restoreTarget && restoreRevision(restoreTarget)}
         onClose={() => setRestoreTarget(null)}
