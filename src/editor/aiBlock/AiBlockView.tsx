@@ -13,6 +13,10 @@ import { alpha } from '@mui/material/styles';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import LayersClearOutlinedIcon from '@mui/icons-material/LayersClearOutlined';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import UnfoldLessIcon from '@mui/icons-material/UnfoldLess';
+import VerticalAlignTopIcon from '@mui/icons-material/VerticalAlignTop';
+import VerticalAlignBottomIcon from '@mui/icons-material/VerticalAlignBottom';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import SelectAllIcon from '@mui/icons-material/SelectAll';
@@ -33,6 +37,9 @@ export function AiBlockView({ node, updateAttributes, editor, getPos }: ReactNod
   const style = ROLE_STYLE[info.role];
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const label = (node.attrs.label as string | null) ?? '';
+  const collapsed = !!node.attrs.collapsed;
+  // 畳んでいるときに見せる 1 行の要約
+  const summary = collapsed ? node.textContent.replace(/\s+/g, ' ').trim() : '';
   // 名前は入力中は手元の状態だけを更新し、確定時（フォーカスが外れた時・Enter）に文書へ反映する。
   // 1 文字ごとに文書を更新すると、エディタが選択範囲を取り戻して日本語入力（変換）が途切れるため。
   const [draft, setDraft] = useState(label);
@@ -90,8 +97,57 @@ export function AiBlockView({ node, updateAttributes, editor, getPos }: ReactNod
   return (
     <NodeViewWrapper
       data-ai-block={info.role}
-      style={{ margin: '0.6em 0' }}
+      style={{ margin: '0.6em 0', position: 'relative' }}
     >
+      {/* ブロックの上の隙間: マウスを乗せると「＋」が出て、押すとブロックの前に行を入れる */}
+      <Box
+        contentEditable={false}
+        role="button"
+        aria-label="この上に行を挿入"
+        title="この上に行を挿入"
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => run((pos) => editor.chain().focus().insertLineAroundAiBlock(pos, -1).run())}
+        sx={(t) => ({
+          display: 'none',
+          '@media (pointer: fine)': { display: 'block' },
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          top: '-0.6em',
+          height: '0.6em',
+          cursor: 'pointer',
+          zIndex: 1,
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            left: 12,
+            right: 0,
+            top: '50%',
+            borderTop: `2px solid ${t.palette.primary.main}`,
+            opacity: 0,
+            transition: 'opacity 120ms',
+          },
+          '&::after': {
+            content: '"+"',
+            position: 'absolute',
+            left: 0,
+            top: '50%',
+            transform: 'translateY(-50%)',
+            width: 18,
+            height: 18,
+            lineHeight: '17px',
+            textAlign: 'center',
+            borderRadius: '50%',
+            fontSize: 14,
+            fontWeight: 700,
+            color: t.palette.primary.contrastText,
+            bgcolor: t.palette.primary.main,
+            opacity: 0,
+            transition: 'opacity 120ms',
+          },
+          '&:hover::before, &:hover::after': { opacity: 1 },
+        })}
+      />
       <Box
         sx={(t) => {
           const c = t.palette.mode === 'dark' ? style.dark : style.light;
@@ -139,6 +195,16 @@ export function AiBlockView({ node, updateAttributes, editor, getPos }: ReactNod
           >
             <DragIndicatorIcon sx={{ fontSize: 18 }} />
           </Box>
+          <ButtonBase
+            aria-label={collapsed ? 'ブロックを広げる' : 'ブロックを折りたたむ'}
+            title={collapsed ? '広げる' : '折りたたむ'}
+            aria-expanded={!collapsed}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => run((pos) => editor.chain().toggleAiBlockCollapsed(pos).run())}
+            sx={{ borderRadius: '6px', color: 'var(--ai-color)', width: { xs: 28, sm: 22 }, height: { xs: 28, sm: 22 }, my: { xs: -0.5, sm: 0 } }}
+          >
+            <ExpandMoreIcon sx={{ fontSize: 18, transition: 'transform 150ms', transform: collapsed ? 'rotate(-90deg)' : 'none' }} />
+          </ButtonBase>
           <ButtonBase
             onClick={(e) => setAnchor(e.currentTarget)}
             aria-label={`${info.label}ブロック（種類を変更）`}
@@ -189,9 +255,22 @@ export function AiBlockView({ node, updateAttributes, editor, getPos }: ReactNod
             sx={{ flex: 1, minWidth: 0, fontSize: 12, color: 'text.secondary', '& input': { py: 0.25 } }}
           />
         </Box>
+        {collapsed && (
+          <Box
+            contentEditable={false}
+            onClick={() => run((pos) => editor.chain().toggleAiBlockCollapsed(pos).run())}
+            sx={{ color: 'text.secondary', fontSize: '0.9em', cursor: 'pointer', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', userSelect: 'none', pb: 0.25 }}
+            title="押すと広げます"
+          >
+            {summary ? `${summary.slice(0, 120)}` : '（空）'}
+            <Box component="span" sx={{ ml: 1, opacity: 0.7 }}>
+              ・{summary.length.toLocaleString()} 字
+            </Box>
+          </Box>
+        )}
         <NodeViewContent
           className="ai-block-content"
-          style={{ '--ai-hint': JSON.stringify(info.hint) } as CSSProperties}
+          style={{ '--ai-hint': JSON.stringify(info.hint), display: collapsed ? 'none' : undefined } as CSSProperties}
         />
       </Box>
       <Menu anchorEl={anchor} open={!!anchor} onClose={() => setAnchor(null)} disableRestoreFocus>
@@ -210,6 +289,10 @@ export function AiBlockView({ node, updateAttributes, editor, getPos }: ReactNod
             <ListItemText primary={r.label} secondary={r.description} />
           </MenuItem>
         ))}
+        <Divider />
+        {actionItem(<UnfoldLessIcon fontSize="small" />, collapsed ? '広げる' : '折りたたむ', () => run((pos) => editor.chain().toggleAiBlockCollapsed(pos).run()))}
+        {actionItem(<VerticalAlignTopIcon fontSize="small" />, '上に行を挿入', () => run((pos) => editor.chain().focus().insertLineAroundAiBlock(pos, -1).run()))}
+        {actionItem(<VerticalAlignBottomIcon fontSize="small" />, '下に行を挿入', () => run((pos) => editor.chain().focus().insertLineAroundAiBlock(pos, 1).run()))}
         <Divider />
         {actionItem(<ArrowUpwardIcon fontSize="small" />, '上へ移動', () => run((pos) => editor.chain().focus().moveAiBlockAt(pos, -1).run()), !canMove(-1))}
         {actionItem(<ArrowDownwardIcon fontSize="small" />, '下へ移動', () => run((pos) => editor.chain().focus().moveAiBlockAt(pos, 1).run()), !canMove(1))}
